@@ -124,7 +124,7 @@ void tinyiiod_write_xml(struct tinyiiod *iiod)
 void tinyiiod_do_read_attr(struct tinyiiod *iiod, const char *device,
 		const char *channel, bool ch_out, const char *attr, bool debug)
 {
-	char buf[128];
+	char buf[0x10000];
 	ssize_t ret;
 
 	if (channel)
@@ -137,6 +137,7 @@ void tinyiiod_do_read_attr(struct tinyiiod *iiod, const char *device,
 	tinyiiod_write_value(iiod, (int) ret);
 	if (ret > 0) {
 		tinyiiod_write(iiod, buf, (size_t) ret);
+		tinyiiod_write_char(iiod, '\r');
 		tinyiiod_write_char(iiod, '\n');
 	}
 }

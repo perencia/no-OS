@@ -106,7 +106,7 @@ volatile int TotalReceivedCount;
 volatile int TotalSentCount;
 int TotalErrorCount;
 
-#define BUFFERL_LENGTH 2048
+#define BUFFERL_LENGTH 8192
 static char buffer[BUFFERL_LENGTH];
 static char *pnext = buffer;
 static char *pcurr = buffer;

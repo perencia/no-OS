@@ -57,6 +57,9 @@ static const char * const ad9361_rf_rx_port[] =
 	 "TX_MONITOR2", "TX_MONITOR1_2"};
 static const char * const ad9361_rf_tx_port[] =
 	{"A", "B"};
+static const char * const ad9361_calib_mode[] =
+	{"auto", "manual", "tx_quad", "rf_dc_offs", "rssi_gain_step"};
+
 
 /***********************************************************************************************************************
 * Function Name: read_data
@@ -193,9 +196,176 @@ static int read_reg(unsigned int addr, uint32_t *value)
 	return 0;
 }
 
-extern const char *ad9361_ensm_states[12]; // todo add interface for it
+extern const char *ad9361_ensm_states[12];
 extern int32_t ad9361_parse_fir(struct ad9361_rf_phy *phy,
 	char *data, uint32_t size);
+
+struct attrtibute_map {
+	char *attr_name;
+	ssize_t (*read_attribute)(char *buf, size_t len);
+};
+
+ssize_t get_dcxo_tune_coarse(char *buf, size_t len);
+ssize_t get_rx_path_rates(char *buf, size_t len);
+ssize_t get_trx_rate_governor(char *buf, size_t len);
+ssize_t get_calib_mode_available(char *buf, size_t len);
+ssize_t get_xo_correction_available(char *buf, size_t len);
+ssize_t get_gain_table_config(char *buf, size_t len);
+ssize_t get_dcxo_tune_fine(char *buf, size_t len);
+ssize_t get_dcxo_tune_fine_available(char *buf, size_t len);
+ssize_t get_ensm_mode_available(char *buf, size_t len);
+ssize_t get_multichip_sync(char *buf, size_t len);
+ssize_t get_rssi_gain_step_error(char *buf, size_t len);
+ssize_t get_dcxo_tune_coarse_available(char *buf, size_t len);
+ssize_t get_tx_path_rates(char *buf, size_t len);
+ssize_t get_trx_rate_governor_available(char *buf, size_t len);
+ssize_t get_xo_correction(char *buf, size_t len);
+ssize_t get_ensm_mode(char *buf, size_t len);
+ssize_t get_filter_fir_config(char *buf, size_t len);
+ssize_t get_calib_mode(char *buf, size_t len);
+
+static struct attrtibute_map read_ad9361_attrtibute_map[] = {
+	{"dcxo_tune_coarse", get_dcxo_tune_coarse},
+	{"rx_path_rates", get_rx_path_rates},
+	{"trx_rate_governor", get_trx_rate_governor},
+	{"calib_mode_available", get_calib_mode_available},
+	{"xo_correction_available", get_xo_correction_available},
+	{"get_gain_table_config", get_gain_table_config},
+	{"get_dcxo_tune_fine", get_dcxo_tune_fine},
+	{"dcxo_tune_fine_available", get_dcxo_tune_fine_available},
+	{"ensm_mode_available", get_ensm_mode_available},
+	{"multichip_sync", get_multichip_sync},
+	{"rssi_gain_step_error", get_rssi_gain_step_error},
+	{"dcxo_tune_coarse_available", get_dcxo_tune_coarse_available},
+	{"tx_path_rates", get_tx_path_rates},
+	{"trx_rate_governor_available", get_trx_rate_governor_available},
+	{"ensm_mode", get_ensm_mode},
+	{"xo_correction", get_xo_correction},
+	{"filter_fir_config", get_filter_fir_config},
+	{"calib_mode", get_calib_mode},
+};
+
+int16_t get_attribute_id(const char *attr) {
+	int16_t attrinutes_no = sizeof(read_ad9361_attrtibute_map) / sizeof(read_ad9361_attrtibute_map[0]);
+	int16_t i;
+	for(i = 0; i < attrinutes_no; i++) {
+		if (strequal(attr, read_ad9361_attrtibute_map[i].attr_name )) {
+			break;
+		}
+	}
+	if(i >= attrinutes_no) {
+		i = -ENODEV;
+	}
+	return i;
+}
+
+ssize_t get_dcxo_tune_coarse(char *buf, size_t len) {
+
+	if (ad9361_phy->pdata->use_extclk)
+		return -ENODEV;
+	else
+		return sprintf(buf, "%d", (int)ad9361_phy->pdata->dcxo_coarse);
+}
+
+ssize_t get_rx_path_rates(char *buf, size_t len) {
+	unsigned long clk[6];
+	ad9361_get_trx_clock_chain(ad9361_phy, clk, NULL);
+	return sprintf(buf, "BBPLL:%lu ADC:%lu R2:%lu R1:%lu RF:%lu RXSAMP:%lu",
+			  clk[0], clk[1], clk[2], clk[3], clk[4], clk[5]);
+}
+
+ssize_t get_trx_rate_governor(char *buf, size_t len) {
+	uint32_t rate_governor;
+	ad9361_get_trx_rate_gov (ad9361_phy, &rate_governor);
+	return sprintf(buf, "%s", rate_governor ? "nominal" : "highest_osr");
+}
+
+ssize_t get_calib_mode_available(char *buf, size_t len) {
+	return (ssize_t) sprintf(buf, "%s %s %s %s %s", ad9361_calib_mode[0],
+			ad9361_calib_mode[1], ad9361_calib_mode[2],
+			ad9361_calib_mode[3], ad9361_calib_mode[4]);
+}
+
+ssize_t get_xo_correction_available(char *buf, size_t len) {
+	//			clk[0] = clk_get_rate(ad9361_phy, ad9361_phy->ref_clk_scale[BB_REFCLK]);
+	//			clk_get_accuracy(ad9361_phy, ad9361_phy->ref_clk_scale[BB_REFCLK]);
+	return (ssize_t) sprintf(buf, "%d", 0); //dummy
+}
+
+ssize_t get_gain_table_config(char *buf, size_t len) {
+	return (ssize_t) sprintf(buf, "%d", 0); //dummy
+}
+
+ssize_t get_dcxo_tune_fine(char *buf, size_t len) {
+	if (ad9361_phy->pdata->use_extclk)
+		return -ENODEV;
+	else
+		return sprintf(buf, "%d", (int)ad9361_phy->pdata->dcxo_fine);
+}
+
+ssize_t get_dcxo_tune_fine_available(char *buf, size_t len) {
+	return sprintf(buf, "%s", ad9361_phy->pdata->use_extclk ? "[0 0 0]" : "[0 1 8191]");
+}
+
+ssize_t get_ensm_mode_available(char *buf, size_t len) {
+	return (ssize_t) sprintf(buf, "%s", ad9361_phy->pdata->fdd ?
+						"sleep wait alert fdd pinctrl pinctrl_fdd_indep" :
+						"sleep wait alert rx tx pinctrl");
+}
+
+ssize_t get_multichip_sync(char *buf, size_t len) {
+	// ad9361_mcs(ad9361_phy, readin);
+	return (ssize_t) sprintf(buf, "%d", 0); //dummy
+}
+
+ssize_t get_rssi_gain_step_error(char *buf, size_t len) {
+	return (ssize_t) sprintf(buf, "%d", 0); //dummy
+}
+
+ssize_t get_dcxo_tune_coarse_available(char *buf, size_t len) {
+	return (ssize_t) sprintf(buf, "%s", ad9361_phy->pdata->use_extclk ? "[0 0 0]" : "[0 1 63]");
+}
+
+ssize_t get_tx_path_rates(char *buf, size_t len) {
+	unsigned long clk[6];
+	ad9361_get_trx_clock_chain(ad9361_phy, NULL, clk);
+	return sprintf(buf, "BBPLL:%lu DAC:%lu T2:%lu T1:%lu TF:%lu TXSAMP:%lu",
+				  clk[0], clk[1], clk[2], clk[3], clk[4], clk[5]);
+}
+
+ssize_t get_trx_rate_governor_available(char *buf, size_t len) {
+	return sprintf(buf, "%s", "nominal highest_osr");
+}
+
+ssize_t get_xo_correction(char *buf, size_t len) {
+	return (ssize_t) sprintf(buf, "%d", 0); //dummy
+}
+
+ssize_t get_ensm_mode(char *buf, size_t len) {
+	ssize_t ret;
+	ret = ad9361_ensm_get_state(ad9361_phy);
+	if (ret < 0)
+		return ret;
+	if (ret >= ARRAY_SIZE(ad9361_ensm_states) ||
+		ad9361_ensm_states[ret] == NULL) {
+		return -EIO;
+	}
+	return sprintf(buf, "%s", ad9361_ensm_states[ret]);
+}
+
+ssize_t get_filter_fir_config(char *buf, size_t len) {
+	return sprintf(buf, "FIR Rx: %d,%d Tx: %d,%d",
+			ad9361_phy->rx_fir_ntaps, ad9361_phy->rx_fir_dec,
+			ad9361_phy->tx_fir_ntaps, ad9361_phy->tx_fir_int);
+}
+
+ssize_t get_calib_mode(char *buf, size_t len) {
+	uint8_t en_dis;
+	ad9361_get_tx_auto_cal_en_dis(ad9361_phy, &en_dis);
+	return (ssize_t) snprintf(buf, len, "%s", en_dis ? "auto" : "manual");
+}
+
+
 /***********************************************************************************************************************
 * Function Name: read_attr
 * Description  : None
@@ -205,95 +375,34 @@ extern int32_t ad9361_parse_fir(struct ad9361_rf_phy *phy,
 static ssize_t read_attr(const char *device, const char *attr,
 		char *buf, size_t len, bool debug)
 {
-	int ret = 0;
-	unsigned long clk[6];
-
 	if (!dev_is_ad9361_module(device))
 		return -ENODEV;
-	if(strequal(device, "ad9361-phy")) { // global attributes
-		if(strequal(attr, "rx_path_rates")) {
-			ad9361_get_trx_clock_chain(ad9361_phy, clk, NULL);
-			ret = sprintf(buf, "BBPLL:%lu ADC:%lu R2:%lu R1:%lu RF:%lu RXSAMP:%lu",
-					  clk[0], clk[1], clk[2], clk[3], clk[4], clk[5]);
-			return ret;
+	if(strequal(device, "ad9361-phy")) {
+		int16_t attribute_id = get_attribute_id(attr);
+		if(attribute_id >= 0) {
+			return read_ad9361_attrtibute_map[attribute_id].read_attribute(buf, len);
 		}
-		if(strequal(attr, "tx_path_rates")) {
-			ad9361_get_trx_clock_chain(ad9361_phy, NULL, clk);
-			ret = sprintf(buf, "BBPLL:%lu DAC:%lu T2:%lu T1:%lu TF:%lu TXSAMP:%lu",
-					  clk[0], clk[1], clk[2], clk[3], clk[4], clk[5]);
-			return ret;
-		}
-		if(strequal(attr, "trx_rate_governor_available")) {
-			ret = sprintf(buf, "%s", "nominal highest_osr");
-			return ret;
-		}
-		if(strequal(attr, "trx_rate_governor")) {
-			uint32_t rate_governor;
-			ad9361_get_trx_rate_gov (ad9361_phy, &rate_governor);
-			ret = sprintf(buf, "%s", rate_governor ? "nominal" : "highest_osr");
-			return ret;
-		}
-		if(strequal(attr, "dcxo_tune_coarse_available")) {
-			ret = sprintf(buf, "%s", ad9361_phy->pdata->use_extclk ? "[0 0 0]" : "[0 1 63]");
-			return ret;
-		}
-		if (strequal(attr, "dcxo_tune_coarse")) {
-			if (ad9361_phy->pdata->use_extclk)
-				ret = -ENODEV;
-			else
-				ret = sprintf(buf, "%d", (int)ad9361_phy->pdata->dcxo_coarse);
-			return ret;
-		}
-		if(strequal(attr, "dcxo_tune_fine_available")) {
-			ret = sprintf(buf, "%s", ad9361_phy->pdata->use_extclk ? "[0 0 0]" : "[0 1 8191]");
-			return ret;
-		}
-		if (strequal(attr, "dcxo_tune_fine")) {
-			if (ad9361_phy->pdata->use_extclk)
-				ret = -ENODEV;
-			else
-				ret = sprintf(buf, "%d", (int)ad9361_phy->pdata->dcxo_fine);
-			return ret;
-		}
-		if (strequal(attr, "calib_mode_available")) {
-			return (ssize_t) sprintf(buf, "auto manual tx_quad rf_dc_offs rssi_gain_step");
-		}
-		if (strequal(attr, "calib_mode")) {
-			uint8_t en_dis;
-			ad9361_get_tx_auto_cal_en_dis(ad9361_phy, &en_dis);
-			return (ssize_t) snprintf(buf, len, "%s", en_dis ? "auto" : "manual");
-		}
-		if (strequal(attr, "xo_correction_available")) {
+		if(strequal(attr, "")) {
+			int16_t attrinutes_no = sizeof(read_ad9361_attrtibute_map) / sizeof(read_ad9361_attrtibute_map[0]);
+			int16_t i, j = 0;
+			char local_buf[0x10000];
+			for(i = 0; i < attrinutes_no; i++) {
 
-//			clk[0] = clk_get_rate(ad9361_phy, ad9361_phy->ref_clk_scale[BB_REFCLK]);
-//			clk_get_accuracy(ad9361_phy, ad9361_phy->ref_clk_scale[BB_REFCLK]);
-		}
-		if (strequal(attr, "xo_correction")) {
-//			clk_get_rate(ad9361_phy, ad9361_phy->ref_clk_scale[RX_REFCLK]);
-//			ad9361_phy->ref_clk_scale
-//			ad9361_phy->current_rx_lo_freq
-		}
-		if (strequal(attr, "ensm_mode_available")) {
+				int16_t attr_length = read_ad9361_attrtibute_map[i].read_attribute((local_buf), len);
+				int32_t *len = (int32_t *)(buf + j);
+				*len = Xil_EndianSwap32(attr_length);
 
-			return (ssize_t) sprintf(buf, "%s", ad9361_phy->pdata->fdd ?
-					"sleep wait alert fdd pinctrl pinctrl_fdd_indep" :
-					"sleep wait alert rx tx pinctrl");
-		}
-		if (strequal(attr, "ensm_mode")) {
-			ret = ad9361_ensm_get_state(ad9361_phy);
-			if (ret < 0)
-				return ret;
-			if (ret >= ARRAY_SIZE(ad9361_ensm_states) ||
-				ad9361_ensm_states[ret] == NULL) {
-				return -EIO;
+				j += 4;
+				if(attr_length >= 0) {
+					sprintf(buf + j, "%s", local_buf);
+					if (attr_length & 0x3) //multiple of 4
+						attr_length = ((attr_length >> 2) + 1) << 2;
+					j += attr_length;
+				}
 			}
-			return sprintf(buf, "%s", ad9361_ensm_states[ret]);
+			return j;
 		}
-		if (strequal(attr, "filter_fir_config")) {
-			return sprintf(buf, "FIR Rx: %d,%d Tx: %d,%d",
-						ad9361_phy->rx_fir_ntaps, ad9361_phy->rx_fir_dec,
-						ad9361_phy->tx_fir_ntaps, ad9361_phy->tx_fir_int);
-		}
+
 		return -ENOENT;
 	}
 	else if(strequal(device, "cf-ad9361-dds-core-lpc")) {
@@ -407,10 +516,10 @@ static ssize_t write_attr(const char *device, const char *attr,
 			ret = ad9361_mcs(ad9361_phy, readin);
 			return ret;
 		}
-		if(strequal(attr, "rssi_gain_step_error")) {
-			//todo
-			return -ENOENT;
-		}
+//		if(strequal(attr, "rssi_gain_step_error")) {
+//			//todo
+//			return -ENOENT;
+//		}
 		if(strequal(attr, "filter_fir_config")) {
 			return ad9361_parse_fir(ad9361_phy, (char *)buf, len);
 		}
@@ -439,8 +548,8 @@ static ssize_t ch_read_attr(const char *device, const char *channel,
 	if (!dev_is_ad9361_module(device))
 		return -ENODEV;
 	uint32_t ch_num = strequal(channel, "voltage0") ? 0 : 1;
-	if(strequal(device, "ad9361-phy")) {
 
+	if(strequal(device, "ad9361-phy")) { // global attributes
 		if (strequal(attr, "sampling_frequency_available")) {
 			int int_dec;
 			uint32_t max;
