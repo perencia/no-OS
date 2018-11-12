@@ -224,7 +224,7 @@ ssize_t get_ensm_mode(char *buf, size_t len);
 ssize_t get_filter_fir_config(char *buf, size_t len);
 ssize_t get_calib_mode(char *buf, size_t len);
 
-static struct attrtibute_map read_ad9361_attrtibute_map[] = {
+static struct attrtibute_map global_read_attrtibute_map[] = {
 	{"dcxo_tune_coarse", get_dcxo_tune_coarse},
 	{"rx_path_rates", get_rx_path_rates},
 	{"trx_rate_governor", get_trx_rate_governor},
@@ -239,21 +239,20 @@ static struct attrtibute_map read_ad9361_attrtibute_map[] = {
 	{"dcxo_tune_coarse_available", get_dcxo_tune_coarse_available},
 	{"tx_path_rates", get_tx_path_rates},
 	{"trx_rate_governor_available", get_trx_rate_governor_available},
-	{"ensm_mode", get_ensm_mode},
 	{"xo_correction", get_xo_correction},
+	{"ensm_mode", get_ensm_mode},
 	{"filter_fir_config", get_filter_fir_config},
 	{"calib_mode", get_calib_mode},
 };
 
-int16_t get_attribute_id(const char *attr) {
-	int16_t attrinutes_no = sizeof(read_ad9361_attrtibute_map) / sizeof(read_ad9361_attrtibute_map[0]);
+int16_t get_attribute_id(const char *attr, const struct attrtibute_map* map, int map_size) {
 	int16_t i;
-	for(i = 0; i < attrinutes_no; i++) {
-		if (strequal(attr, read_ad9361_attrtibute_map[i].attr_name )) {
+	for(i = 0; i < map_size; i++) {
+		if (strequal(attr, map[i].attr_name )) {
 			break;
 		}
 	}
-	if(i >= attrinutes_no) {
+	if(i >= map_size) {
 		i = -ENODEV;
 	}
 	return i;
@@ -378,17 +377,17 @@ static ssize_t read_attr(const char *device, const char *attr,
 	if (!dev_is_ad9361_module(device))
 		return -ENODEV;
 	if(strequal(device, "ad9361-phy")) {
-		int16_t attribute_id = get_attribute_id(attr);
+		int16_t attribute_id = get_attribute_id(attr, global_read_attrtibute_map, ARRAY_SIZE(global_read_attrtibute_map));
 		if(attribute_id >= 0) {
-			return read_ad9361_attrtibute_map[attribute_id].read_attribute(buf, len);
+			return global_read_attrtibute_map[attribute_id].read_attribute(buf, len);
 		}
 		if(strequal(attr, "")) {
-			int16_t attrinutes_no = sizeof(read_ad9361_attrtibute_map) / sizeof(read_ad9361_attrtibute_map[0]);
+			int16_t attrinutes_no = sizeof(global_read_attrtibute_map) / sizeof(global_read_attrtibute_map[0]);
 			int16_t i, j = 0;
-			char local_buf[0x10000];
+			char local_buf[0x1000];
 			for(i = 0; i < attrinutes_no; i++) {
 
-				int16_t attr_length = read_ad9361_attrtibute_map[i].read_attribute((local_buf), len);
+				int16_t attr_length = global_read_attrtibute_map[i].read_attribute((local_buf), len);
 				int32_t *len = (int32_t *)(buf + j);
 				*len = Xil_EndianSwap32(attr_length);
 
