@@ -200,29 +200,34 @@ extern const char *ad9361_ensm_states[12];
 extern int32_t ad9361_parse_fir(struct ad9361_rf_phy *phy,
 	char *data, uint32_t size);
 
-struct attrtibute_map {
-	char *attr_name;
-	ssize_t (*read_attribute)(char *buf, size_t len, const char *channel);
+struct channel_info {
+	int ch_num;
+	bool ch_out;
 };
 
-ssize_t get_dcxo_tune_coarse(char *buf, size_t len, const char *channel);
-ssize_t get_rx_path_rates(char *buf, size_t len, const char *channel);
-ssize_t get_trx_rate_governor(char *buf, size_t len, const char *channel);
-ssize_t get_calib_mode_available(char *buf, size_t len, const char *channel);
-ssize_t get_xo_correction_available(char *buf, size_t len, const char *channel);
-ssize_t get_gain_table_config(char *buf, size_t len, const char *channel);
-ssize_t get_dcxo_tune_fine(char *buf, size_t len, const char *channel);
-ssize_t get_dcxo_tune_fine_available(char *buf, size_t len, const char *channel);
-ssize_t get_ensm_mode_available(char *buf, size_t len, const char *channel);
-ssize_t get_multichip_sync(char *buf, size_t len, const char *channel);
-ssize_t get_rssi_gain_step_error(char *buf, size_t len, const char *channel);
-ssize_t get_dcxo_tune_coarse_available(char *buf, size_t len, const char *channel);
-ssize_t get_tx_path_rates(char *buf, size_t len, const char *channel);
-ssize_t get_trx_rate_governor_available(char *buf, size_t len, const char *channel);
-ssize_t get_xo_correction(char *buf, size_t len, const char *channel);
-ssize_t get_ensm_mode(char *buf, size_t len, const char *channel);
-ssize_t get_filter_fir_config(char *buf, size_t len, const char *channel);
-ssize_t get_calib_mode(char *buf, size_t len, const char *channel);
+struct attrtibute_map {
+	char *attr_name;
+	ssize_t (*read_attribute)(char *buf, size_t len, const struct channel_info *channel);
+};
+
+ssize_t get_dcxo_tune_coarse(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_rx_path_rates(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_trx_rate_governor(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_calib_mode_available(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_xo_correction_available(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_gain_table_config(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_dcxo_tune_fine(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_dcxo_tune_fine_available(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_ensm_mode_available(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_multichip_sync(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_rssi_gain_step_error(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_dcxo_tune_coarse_available(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_tx_path_rates(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_trx_rate_governor_available(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_xo_correction(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_ensm_mode(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_filter_fir_config(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_calib_mode(char *buf, size_t len, const struct channel_info *channel);
 
 static struct attrtibute_map global_read_attrtibute_map[] = {
 	{"dcxo_tune_coarse", get_dcxo_tune_coarse},
@@ -258,7 +263,7 @@ int16_t get_attribute_id(const char *attr, const struct attrtibute_map* map, int
 	return i;
 }
 
-ssize_t get_dcxo_tune_coarse(char *buf, size_t len, const char *channel) {
+ssize_t get_dcxo_tune_coarse(char *buf, size_t len, const struct channel_info *channel) {
 
 	if (ad9361_phy->pdata->use_extclk)
 		return -ENODEV;
@@ -266,81 +271,81 @@ ssize_t get_dcxo_tune_coarse(char *buf, size_t len, const char *channel) {
 		return sprintf(buf, "%d", (int)ad9361_phy->pdata->dcxo_coarse);
 }
 
-ssize_t get_rx_path_rates(char *buf, size_t len, const char *channel) {
+ssize_t get_rx_path_rates(char *buf, size_t len, const struct channel_info *channel) {
 	unsigned long clk[6];
 	ad9361_get_trx_clock_chain(ad9361_phy, clk, NULL);
 	return sprintf(buf, "BBPLL:%lu ADC:%lu R2:%lu R1:%lu RF:%lu RXSAMP:%lu",
 			  clk[0], clk[1], clk[2], clk[3], clk[4], clk[5]);
 }
 
-ssize_t get_trx_rate_governor(char *buf, size_t len, const char *channel) {
+ssize_t get_trx_rate_governor(char *buf, size_t len, const struct channel_info *channel) {
 	uint32_t rate_governor;
 	ad9361_get_trx_rate_gov (ad9361_phy, &rate_governor);
 	return sprintf(buf, "%s", rate_governor ? "nominal" : "highest_osr");
 }
 
-ssize_t get_calib_mode_available(char *buf, size_t len, const char *channel) {
+ssize_t get_calib_mode_available(char *buf, size_t len, const struct channel_info *channel) {
 	return (ssize_t) sprintf(buf, "%s %s %s %s %s", ad9361_calib_mode[0],
 			ad9361_calib_mode[1], ad9361_calib_mode[2],
 			ad9361_calib_mode[3], ad9361_calib_mode[4]);
 }
 
-ssize_t get_xo_correction_available(char *buf, size_t len, const char *channel) {
+ssize_t get_xo_correction_available(char *buf, size_t len, const struct channel_info *channel) {
 	//			clk[0] = clk_get_rate(ad9361_phy, ad9361_phy->ref_clk_scale[BB_REFCLK]);
 	//			clk_get_accuracy(ad9361_phy, ad9361_phy->ref_clk_scale[BB_REFCLK]);
 	return (ssize_t) sprintf(buf, "%d", 0); //dummy
 }
 
-ssize_t get_gain_table_config(char *buf, size_t len, const char *channel) {
+ssize_t get_gain_table_config(char *buf, size_t len, const struct channel_info *channel) {
 	return (ssize_t) sprintf(buf, "%d", 0); //dummy
 }
 
-ssize_t get_dcxo_tune_fine(char *buf, size_t len, const char *channel) {
+ssize_t get_dcxo_tune_fine(char *buf, size_t len, const struct channel_info *channel) {
 	if (ad9361_phy->pdata->use_extclk)
 		return -ENODEV;
 	else
 		return sprintf(buf, "%d", (int)ad9361_phy->pdata->dcxo_fine);
 }
 
-ssize_t get_dcxo_tune_fine_available(char *buf, size_t len, const char *channel) {
+ssize_t get_dcxo_tune_fine_available(char *buf, size_t len, const struct channel_info *channel) {
 	return sprintf(buf, "%s", ad9361_phy->pdata->use_extclk ? "[0 0 0]" : "[0 1 8191]");
 }
 
-ssize_t get_ensm_mode_available(char *buf, size_t len, const char *channel) {
+ssize_t get_ensm_mode_available(char *buf, size_t len, const struct channel_info *channel) {
 	return (ssize_t) sprintf(buf, "%s", ad9361_phy->pdata->fdd ?
 						"sleep wait alert fdd pinctrl pinctrl_fdd_indep" :
 						"sleep wait alert rx tx pinctrl");
 }
 
-ssize_t get_multichip_sync(char *buf, size_t len, const char *channel) {
+ssize_t get_multichip_sync(char *buf, size_t len, const struct channel_info *channel) {
 	// ad9361_mcs(ad9361_phy, readin);
 	return (ssize_t) sprintf(buf, "%d", 0); //dummy
 }
 
-ssize_t get_rssi_gain_step_error(char *buf, size_t len, const char *channel) {
+ssize_t get_rssi_gain_step_error(char *buf, size_t len, const struct channel_info *channel) {
 	return (ssize_t) sprintf(buf, "%d", 0); //dummy
 }
 
-ssize_t get_dcxo_tune_coarse_available(char *buf, size_t len, const char *channel) {
+ssize_t get_dcxo_tune_coarse_available(char *buf, size_t len, const struct channel_info *channel) {
 	return (ssize_t) sprintf(buf, "%s", ad9361_phy->pdata->use_extclk ? "[0 0 0]" : "[0 1 63]");
 }
 
-ssize_t get_tx_path_rates(char *buf, size_t len, const char *channel) {
+ssize_t get_tx_path_rates(char *buf, size_t len, const struct channel_info *channel) {
 	unsigned long clk[6];
 	ad9361_get_trx_clock_chain(ad9361_phy, NULL, clk);
 	return sprintf(buf, "BBPLL:%lu DAC:%lu T2:%lu T1:%lu TF:%lu TXSAMP:%lu",
 				  clk[0], clk[1], clk[2], clk[3], clk[4], clk[5]);
 }
 
-ssize_t get_trx_rate_governor_available(char *buf, size_t len, const char *channel) {
+ssize_t get_trx_rate_governor_available(char *buf, size_t len, const struct channel_info *channel) {
 	return sprintf(buf, "%s", "nominal highest_osr");
 }
 
-ssize_t get_xo_correction(char *buf, size_t len, const char *channel) {
+ssize_t get_xo_correction(char *buf, size_t len, const struct channel_info *channel) {
 	return (ssize_t) sprintf(buf, "%d", 0); //dummy
 }
 
-ssize_t get_ensm_mode(char *buf, size_t len, const char *channel) {
+ssize_t get_ensm_mode(char *buf, size_t len, const struct channel_info *channel) {
 	ssize_t ret;
 	ret = ad9361_ensm_get_state(ad9361_phy);
 	if (ret < 0)
@@ -352,24 +357,24 @@ ssize_t get_ensm_mode(char *buf, size_t len, const char *channel) {
 	return sprintf(buf, "%s", ad9361_ensm_states[ret]);
 }
 
-ssize_t get_filter_fir_config(char *buf, size_t len, const char *channel) {
+ssize_t get_filter_fir_config(char *buf, size_t len, const struct channel_info *channel) {
 	return sprintf(buf, "FIR Rx: %d,%d Tx: %d,%d",
 			ad9361_phy->rx_fir_ntaps, ad9361_phy->rx_fir_dec,
 			ad9361_phy->tx_fir_ntaps, ad9361_phy->tx_fir_int);
 }
 
-ssize_t get_calib_mode(char *buf, size_t len, const char *channel) {
+ssize_t get_calib_mode(char *buf, size_t len, const struct channel_info *channel) {
 	uint8_t en_dis;
 	ad9361_get_tx_auto_cal_en_dis(ad9361_phy, &en_dis);
 	return (ssize_t) snprintf(buf, len, "%s", en_dis ? "auto" : "manual");
 }
 
-static ssize_t read_all_attr(char *buf, size_t len, const struct attrtibute_map* map, int map_size) {
+static ssize_t read_all_attr(char *buf, size_t len, const struct channel_info *channel, const struct attrtibute_map* map, int map_size) {
 	int16_t i, j = 0;
 	char local_buf[0x1000];
 	for(i = 0; i < map_size; i++) {
 
-		int16_t attr_length = map[i].read_attribute((local_buf), len, NULL);
+		int16_t attr_length = map[i].read_attribute((local_buf), len, channel);
 		int32_t *len = (int32_t *)(buf + j);
 		*len = Xil_EndianSwap32(attr_length);
 
@@ -401,7 +406,7 @@ static ssize_t read_attr(const char *device, const char *attr,
 			return global_read_attrtibute_map[attribute_id].read_attribute(buf, len, NULL);
 		}
 		if(strequal(attr, "")) {
-			return read_all_attr(buf, len, global_read_attrtibute_map, ARRAY_SIZE(global_read_attrtibute_map));
+			return read_all_attr(buf, len, NULL, global_read_attrtibute_map, ARRAY_SIZE(global_read_attrtibute_map));
 		}
 		return -ENOENT;
 	}
@@ -534,44 +539,239 @@ static ssize_t write_attr(const char *device, const char *attr,
 	return -ENODEV;
 }
 
+ssize_t get_sampling_frequency(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_sampling_frequency_available(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_filter_fir_en(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_bb_dc_offset_tracking_en(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_rf_dc_offset_tracking_en(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_quadrature_tracking_en(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_rssi(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_rf_bandwidth(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_rf_bandwidth_available(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_rf_port_select_available(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_rf_port_select(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_gain_control_mode_available(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_gain_control_mode(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_hardwaregain_available(char *buf, size_t len, const struct channel_info *channel);
+ssize_t get_hardwaregain(char *buf, size_t len, const struct channel_info *channel);
 
-
-
-ssize_t get_sampling_frequency(char *buf, size_t len, const char *channel);
-
-static struct attrtibute_map ch_read_attrtibute_map[] = {
-	{"sampling_frequency", get_sampling_frequency},
+static struct attrtibute_map ch_in_read_attrtibute_map[] = {
+	{"hardwaregain_available", get_hardwaregain_available},
+	{"hardwaregain", get_hardwaregain},
+	{"rssi", get_rssi},
+	{"rf_port_select", get_rf_port_select},
+	{"gain_control_mode", get_gain_control_mode},
+	{"rf_port_select_available", get_rf_port_select_available},
+	{"rf_bandwidth", get_rf_bandwidth},
+	{"rf_dc_offset_tracking_en", get_rf_dc_offset_tracking_en},
 	{"sampling_frequency_available", get_sampling_frequency_available},
+	{"quadrature_tracking_en", get_quadrature_tracking_en},
+	{"sampling_frequency", get_sampling_frequency},
+	{"gain_control_mode_available", get_gain_control_mode_available},
+	{"filter_fir_en", get_filter_fir_en},
+	{"rf_bandwidth_available", get_rf_bandwidth_available},
+	{"bb_dc_offset_tracking_en", get_bb_dc_offset_tracking_en},
 };
 
-ssize_t get_sampling_frequency(char *buf, size_t len, const char *channel) {
+static struct attrtibute_map ch_out_read_attrtibute_map[] = {
+	{"rf_port_select", get_rf_port_select},
+	{"hardwaregain", get_hardwaregain},
+	{"rssi", get_rssi},
+	{"hardwaregain_available", get_hardwaregain_available},
+	{"sampling_frequency_available", get_sampling_frequency_available},
+	{"rf_port_select_available", get_rf_port_select_available},
+	{"filter_fir_en", get_filter_fir_en},
+	{"sampling_frequency", get_sampling_frequency},
+	{"rf_bandwidth_available", get_rf_bandwidth_available},
+	{"rf_bandwidth", get_rf_bandwidth},
+};
+
+ssize_t get_sampling_frequency(char *buf, size_t len, const struct channel_info *channel) {
 	uint32_t sampling_freq_hz;
 	ad9361_get_rx_sampling_freq (ad9361_phy, &sampling_freq_hz);
 	return (ssize_t) snprintf(buf, len, "%d", (int)sampling_freq_hz);
 }
 
-ssize_t get_sampling_frequency(char *buf, size_t len, const char *channel) {
+ssize_t get_sampling_frequency_available(char *buf, size_t len, const struct channel_info *channel) {
 	int int_dec;
-		uint32_t max;
+	uint32_t max;
 
-		if (ad9361_phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE)
-			max = 61440000U;
+	if (ad9361_phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE)
+		max = 61440000U;
+	else
+		max = 61440000U / (ad9361_phy->pdata->rx2tx2 ? 2 : 1);
+
+	if (channel->ch_out) {
+		if (ad9361_phy->bypass_tx_fir)
+			int_dec = 1;
 		else
-			max = 61440000U / (ad9361_phy->pdata->rx2tx2 ? 2 : 1);
+			int_dec = ad9361_phy->tx_fir_int;
 
-		if (ch_out) {
-			if (ad9361_phy->bypass_tx_fir)
-				int_dec = 1;
-			else
-				int_dec = ad9361_phy->tx_fir_int;
+	} else {
+		if (ad9361_phy->bypass_rx_fir)
+			int_dec = 1;
+		else
+			int_dec = ad9361_phy->rx_fir_dec;
+	}
+	return (ssize_t) snprintf(buf, len, "[%lu %d %lu]", MIN_ADC_CLK / (12 * int_dec), 1, max);
+}
 
-		} else {
-			if (ad9361_phy->bypass_rx_fir)
-				int_dec = 1;
-			else
-				int_dec = ad9361_phy->rx_fir_dec;
+ssize_t get_filter_fir_en(char *buf, size_t len, const struct channel_info *channel) {
+	uint8_t en_dis;
+	if(channel->ch_out) {
+		ad9361_get_tx_fir_en_dis (ad9361_phy, &en_dis);
+	}
+	else {
+		ad9361_get_rx_fir_en_dis (ad9361_phy, &en_dis);
+	}
+	return (ssize_t) snprintf(buf, len, "%d", en_dis);
+}
+
+ssize_t get_bb_dc_offset_tracking_en(char *buf, size_t len, const struct channel_info *channel) {
+	if(!channel->ch_out) {
+		return (ssize_t) sprintf(buf, "%d", ad9361_phy->bbdc_track_en);
+	}
+	return -ENOENT;
+}
+
+ssize_t get_rf_dc_offset_tracking_en(char *buf, size_t len, const struct channel_info *channel) {
+	if(!channel->ch_out) {
+		return (ssize_t) sprintf(buf, "%d", ad9361_phy->rfdc_track_en);
+	}
+	return -ENOENT;
+}
+
+ssize_t get_quadrature_tracking_en(char *buf, size_t len, const struct channel_info *channel) {
+	if(!channel->ch_out) {
+		return (ssize_t) sprintf(buf, "%d", ad9361_phy->quad_track_en);
+	}
+	return -ENOENT;
+}
+
+ssize_t get_rssi(char *buf, size_t len, const struct channel_info *channel) {
+	ssize_t ret;
+	if(channel->ch_out) {
+		uint32_t rssi_db_x_1000;
+		ret = ad9361_get_tx_rssi(ad9361_phy, channel->ch_num, &rssi_db_x_1000);
+		if (ret < 0) {
+			return -EINVAL;
 		}
-		return (ssize_t) snprintf(buf, len, "[%lu %d %lu]", MIN_ADC_CLK / (12 * int_dec), 1, max);
+		return ret < 0 ? ret : sprintf(buf, "%lu.%02lu dB",
+				rssi_db_x_1000 / 1000, rssi_db_x_1000 % 1000);
+	}
+	else {
+		struct rf_rssi rssi = {0};
+		ret = ad9361_get_rx_rssi (ad9361_phy, channel->ch_num, &rssi);
+		return ret < 0 ? ret : sprintf(buf, "%lu.%02lu dB",
+				rssi.symbol / rssi.multiplier, rssi.symbol % rssi.multiplier);
+	}
+}
+
+ssize_t get_rf_bandwidth(char *buf, size_t len, const struct channel_info *channel) {
+	if(channel->ch_out) {
+		return sprintf(buf, "%lu", ad9361_phy->current_tx_bw_Hz);
+	}
+	else {
+		return sprintf(buf, "%lu", ad9361_phy->current_rx_bw_Hz);
+	}
+}
+
+ssize_t get_rf_bandwidth_available(char *buf, size_t len, const struct channel_info *channel) {
+	if(channel->ch_out) {
+		return sprintf(buf, "[200000 1 40000000]");
+	}
+	else {
+		return sprintf(buf, "[200000 1 56000000]");
+	}
+}
+
+ssize_t get_rf_port_select_available(char *buf, size_t len, const struct channel_info *channel) {
+	if(channel->ch_out) {
+		return (ssize_t) sprintf(buf, "%s %s",
+				ad9361_rf_tx_port[0],
+				ad9361_rf_tx_port[1]);
+	}
+	else {
+		ssize_t bytes_no = 0;
+		for(int i = 0; i < sizeof(ad9361_rf_rx_port) / sizeof(ad9361_rf_rx_port[0]); i++) {
+			if(i > 0 ) {
+				bytes_no += sprintf(buf + bytes_no, " ");
+			}
+			bytes_no += sprintf(buf + bytes_no, "%s", ad9361_rf_rx_port[i]);
+			if(bytes_no < 0) {
+				break;
+			}
+		}
+		return bytes_no;
+	}
+}
+
+ssize_t get_rf_port_select(char *buf, size_t len, const struct channel_info *channel) {
+	ssize_t ret;
+	if(channel->ch_out) {
+		uint32_t mode;
+		ret = ad9361_get_tx_rf_port_output(ad9361_phy, &mode);
+		return ret < 0 ? ret : sprintf(buf, "%s", ad9361_rf_tx_port[mode]);
+	}
+	else {
+		uint32_t mode;
+		ret = ad9361_get_rx_rf_port_input(ad9361_phy, &mode);
+		return ret < 0 ? ret : sprintf(buf, "%s", ad9361_rf_rx_port[mode]);
+	}
+}
+
+ssize_t get_gain_control_mode_available(char *buf, size_t len, const struct channel_info *channel) {
+	return (ssize_t) sprintf(buf, "%s %s %s %s",
+			ad9361_agc_modes[0],
+			ad9361_agc_modes[1],
+			ad9361_agc_modes[2],
+			ad9361_agc_modes[3]);
+}
+
+ssize_t get_gain_control_mode(char *buf, size_t len, const struct channel_info *channel) {
+	return (ssize_t) sprintf(buf, "%s", ad9361_agc_modes[ad9361_phy->agc_mode[channel->ch_num]]);
+}
+
+ssize_t get_hardwaregain_available(char *buf, size_t len, const struct channel_info *channel) {
+	if (channel->ch_out) {
+		return (ssize_t) snprintf(buf, len, "[%d, %d, %d]", 0, 250, 89750);
+	} else {
+		return (ssize_t) snprintf(buf, len, "[%ld, %d, %ld]",
+				ad9361_phy->rx_gain[ad9361_phy->current_table].starting_gain_db,
+				1,
+				ad9361_phy->rx_gain[ad9361_phy->current_table].max_gain_db);
+	}
+}
+
+ssize_t get_hardwaregain(char *buf, size_t len, const struct channel_info *channel) {
+	if(channel->ch_out) {
+		int32_t ret = ad9361_get_tx_atten(ad9361_phy, channel->ch_num + 1);
+		if (ret < 0) {
+			return -EINVAL;
+		}
+		int32_t val1 = -1 * (ret / 1000);
+		int32_t val2 = (ret % 1000) * 1000;
+		if (!val1) {
+			val2 *= -1;
+
+		}
+		int i = 0;
+		if(val2 < 0 && val1 >= 0) {
+			ret = (ssize_t) snprintf(buf, len, "-");
+			i++;
+		}
+		ret = i + (ssize_t) snprintf(&buf[i], len, "%ld.%.6ld dB", val1, labs(val2));
+		return ret;
+	} else {
+		struct rf_rx_gain rx_gain = {0};
+		int32_t ret = ad9361_get_rx_gain(ad9361_phy, ad9361_1rx1tx_channel_map(ad9361_phy,
+				false, channel->ch_num + 1), &rx_gain);
+		if (ret < 0) {
+			return -EINVAL;
+		}
+		return (ssize_t) snprintf(buf, len, "%d.000000 dB", (int)rx_gain.gain_db);
+	}
+
 }
 
 /***********************************************************************************************************************
@@ -583,191 +783,27 @@ ssize_t get_sampling_frequency(char *buf, size_t len, const char *channel) {
 static ssize_t ch_read_attr(const char *device, const char *channel,
 		bool ch_out, const char *attr, char *buf, size_t len)
 {
-	int ret = 0;
 	int32_t temp;
+	const struct channel_info channel_info = {
+			strequal(channel, "voltage0") ? 0 : 1,
+			ch_out
+		};
 	if (!dev_is_ad9361_module(device))
 		return -ENODEV;
-	uint32_t ch_num = strequal(channel, "voltage0") ? 0 : 1;
 
 	if(strequal(device, "ad9361-phy")) { // global attributes
-		int16_t attribute_id = get_attribute_id(attr, ch_read_attrtibute_map, ARRAY_SIZE(ch_read_attrtibute_map));
+		int16_t attribute_id;
+		attribute_id = get_attribute_id(attr, ch_in_read_attrtibute_map, ARRAY_SIZE(ch_in_read_attrtibute_map));
 		if(attribute_id >= 0) {
-			return ch_read_attrtibute_map[attribute_id].read_attribute(buf, len, channel);
+			return ch_in_read_attrtibute_map[attribute_id].read_attribute(buf, len, &channel_info);
 		}
-
-		if (strequal(attr, "sampling_frequency_available")) {
-			int int_dec;
-			uint32_t max;
-
-			if (ad9361_phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE)
-				max = 61440000U;
+		if(strequal(attr, "")) {
+			if(ch_out)
+				return read_all_attr(buf, len, &channel_info, ch_out_read_attrtibute_map, ARRAY_SIZE(ch_out_read_attrtibute_map));
 			else
-				max = 61440000U / (ad9361_phy->pdata->rx2tx2 ? 2 : 1);
-
-			if (ch_out) {
-				if (ad9361_phy->bypass_tx_fir)
-					int_dec = 1;
-				else
-					int_dec = ad9361_phy->tx_fir_int;
-
-			} else {
-				if (ad9361_phy->bypass_rx_fir)
-					int_dec = 1;
-				else
-					int_dec = ad9361_phy->rx_fir_dec;
-			}
-			return (ssize_t) snprintf(buf, len, "[%lu %d %lu]", MIN_ADC_CLK / (12 * int_dec), 1, max);
-		}
-//		if (strequal(attr, "sampling_frequency")) {
-//			uint32_t sampling_freq_hz;
-//			ad9361_get_rx_sampling_freq (ad9361_phy, &sampling_freq_hz);
-//			return (ssize_t) snprintf(buf, len, "%d", (int)sampling_freq_hz);
-//		}
-		if (strequal(attr, "filter_fir_en")) {
-			uint8_t en_dis;
-			if(ch_out) {
-				ad9361_get_tx_fir_en_dis (ad9361_phy, &en_dis);
-			}
-			else {
-				ad9361_get_rx_fir_en_dis (ad9361_phy, &en_dis);
-			}
-			return (ssize_t) snprintf(buf, len, "%d", en_dis);
-		}
-		if (strequal(attr, "bb_dc_offset_tracking_en")) {
-			if(!ch_out) {
-				return (ssize_t) sprintf(buf, "%d", ad9361_phy->bbdc_track_en);
-			}
-			return -ENOENT;
-		}
-		if (strequal(attr, "rf_dc_offset_tracking_en")) {
-			if(!ch_out) {
-				return (ssize_t) sprintf(buf, "%d", ad9361_phy->rfdc_track_en);
-			}
-			return -ENOENT;
-		}
-		if (strequal(attr, "quadrature_tracking_en")) {
-			if(!ch_out) {
-				return (ssize_t) sprintf(buf, "%d", ad9361_phy->quad_track_en);
-			}
-			return -ENOENT;
+				return read_all_attr(buf, len, &channel_info, ch_in_read_attrtibute_map, ARRAY_SIZE(ch_in_read_attrtibute_map));
 		}
 
-
-		if (strequal(attr, "rssi")) {
-			if(ch_out) {
-				uint32_t rssi_db_x_1000;
-				ret = ad9361_get_tx_rssi(ad9361_phy, ch_num, &rssi_db_x_1000);
-				if (ret < 0) {
-					return -EINVAL;
-				}
-				return ret < 0 ? ret : sprintf(buf, "%lu.%02lu dB",
-						rssi_db_x_1000 / 1000, rssi_db_x_1000 % 1000);
-			}
-			else {
-				struct rf_rssi rssi = {0};
-				ret = ad9361_get_rx_rssi (ad9361_phy, ch_num, &rssi);
-				return ret < 0 ? ret : sprintf(buf, "%lu.%02lu dB",
-						rssi.symbol / rssi.multiplier, rssi.symbol % rssi.multiplier);
-			}
-		}
-		if (strequal(attr, "rf_bandwidth")) {
-			if(ch_out) {
-				return sprintf(buf, "%lu", ad9361_phy->current_tx_bw_Hz);
-			}
-			else {
-				return sprintf(buf, "%lu", ad9361_phy->current_rx_bw_Hz);
-			}
-		}
-		if (strequal(attr, "rf_bandwidth_available")) {
-			if(ch_out) {
-				return sprintf(buf, "[200000 1 40000000]");
-			}
-			else {
-				return sprintf(buf, "[200000 1 56000000]");
-			}
-		}
-		if (strequal(attr, "rf_port_select_available")) {
-			if(ch_out) {
-				return (ssize_t) sprintf(buf, "%s %s",
-						ad9361_rf_tx_port[0],
-						ad9361_rf_tx_port[1]);
-			}
-			else {
-				ssize_t bytes_no = 0;
-				for(int i = 0; i < sizeof(ad9361_rf_rx_port) / sizeof(ad9361_rf_rx_port[0]); i++) {
-					if(i > 0 ) {
-						bytes_no += sprintf(buf + bytes_no, " ");
-					}
-					bytes_no += sprintf(buf + bytes_no, "%s", ad9361_rf_rx_port[i]);
-					if(bytes_no < 0) {
-						break;
-					}
-				}
-				return bytes_no;
-			}
-		}
-		if (strequal(attr, "rf_port_select")) {
-			if(ch_out) {
-				uint32_t mode;
-				ret = ad9361_get_tx_rf_port_output(ad9361_phy, &mode);
-				return ret < 0 ? ret : sprintf(buf, "%s", ad9361_rf_tx_port[mode]);
-			}
-			else {
-				uint32_t mode;
-				ret = ad9361_get_rx_rf_port_input(ad9361_phy, &mode);
-				return ret < 0 ? ret : sprintf(buf, "%s", ad9361_rf_rx_port[mode]);
-			}
-		}
-		if (strequal(attr, "gain_control_mode_available")) {
-			return (ssize_t) sprintf(buf, "%s %s %s %s",
-					ad9361_agc_modes[0],
-					ad9361_agc_modes[1],
-					ad9361_agc_modes[2],
-					ad9361_agc_modes[3]);
-		}
-		if (strequal(attr, "gain_control_mode")) {
-			return (ssize_t) sprintf(buf, "%s", ad9361_agc_modes[ad9361_phy->agc_mode[ch_num]]);
-		}
-		if (strequal(attr, "hardwaregain_available")) {
-			if (ch_out) {
-				return (ssize_t) snprintf(buf, len, "[%d, %d, %d]", 0, 250, 89750);
-			} else {
-				return (ssize_t) snprintf(buf, len, "[%ld, %d, %ld]",
-						ad9361_phy->rx_gain[ad9361_phy->current_table].starting_gain_db,
-						1,
-						ad9361_phy->rx_gain[ad9361_phy->current_table].max_gain_db);
-			}
-		}
-		if (strequal(attr, "hardwaregain")) {
-			if(ch_out) {
-				int32_t ret = ad9361_get_tx_atten(ad9361_phy, ch_num + 1);
-				if (ret < 0) {
-					return -EINVAL;
-				}
-				int32_t val1 = -1 * (ret / 1000);
-				int32_t val2 = (ret % 1000) * 1000;
-				if (!val1) {
-					val2 *= -1;
-
-				}
-				int i = 0;
-				if(val2 < 0 && val1 >= 0) {
-					ret = (ssize_t) snprintf(buf, len, "-");
-					i++;
-				}
-				ret = i + (ssize_t) snprintf(&buf[i], len, "%ld.%.6ld dB", val1, labs(val2));
-				return ret;
-			} else {
-				struct rf_rx_gain rx_gain = {0};
-				int32_t ret = ad9361_get_rx_gain(ad9361_phy, ad9361_1rx1tx_channel_map(ad9361_phy,
-						false, ch_num + 1), &rx_gain);
-				if (ret < 0) {
-					return -EINVAL;
-				}
-				return (ssize_t) snprintf(buf, len, "%d.000000 dB", (int)rx_gain.gain_db);
-			}
-
-		}
 		if(strequal(channel, "temp0")) {
 			if(strequal(attr, "input")) {
 				ad9361_get_temperature(ad9361_phy, &temp);
