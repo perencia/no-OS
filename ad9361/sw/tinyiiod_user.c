@@ -792,18 +792,19 @@ static ssize_t ch_read_attr(const char *device, const char *channel,
 		return -ENODEV;
 
 	if(strequal(device, "ad9361-phy")) { // global attributes
-		int16_t attribute_id;
-		attribute_id = get_attribute_id(attr, ch_in_read_attrtibute_map, ARRAY_SIZE(ch_in_read_attrtibute_map));
-		if(attribute_id >= 0) {
-			return ch_in_read_attrtibute_map[attribute_id].read_attribute(buf, len, &channel_info);
+		if(strequal(channel, "voltage0") || strequal(channel, "voltage1")) {
+			int16_t attribute_id;
+			attribute_id = get_attribute_id(attr, ch_in_read_attrtibute_map, ARRAY_SIZE(ch_in_read_attrtibute_map));
+			if(attribute_id >= 0) {
+				return ch_in_read_attrtibute_map[attribute_id].read_attribute(buf, len, &channel_info);
+			}
+			if(strequal(attr, "")) {
+				if(ch_out)
+					return read_all_attr(buf, len, &channel_info, ch_out_read_attrtibute_map, ARRAY_SIZE(ch_out_read_attrtibute_map));
+				else
+					return read_all_attr(buf, len, &channel_info, ch_in_read_attrtibute_map, ARRAY_SIZE(ch_in_read_attrtibute_map));
+			}
 		}
-		if(strequal(attr, "")) {
-			if(ch_out)
-				return read_all_attr(buf, len, &channel_info, ch_out_read_attrtibute_map, ARRAY_SIZE(ch_out_read_attrtibute_map));
-			else
-				return read_all_attr(buf, len, &channel_info, ch_in_read_attrtibute_map, ARRAY_SIZE(ch_in_read_attrtibute_map));
-		}
-
 		if(strequal(channel, "temp0")) {
 			if(strequal(attr, "input")) {
 				ad9361_get_temperature(ad9361_phy, &temp);
@@ -832,151 +833,151 @@ static ssize_t ch_write_attr(const char *device, const char *channel,
 	int ret;
 	if (!dev_is_ad9361_module(device))
 			return -ENODEV;
-	uint32_t ch_num = strequal(channel, "voltage0") ? 0 : 1;
-	if (strequal(attr, "sampling_frequency")) {
-		uint32_t sampling_freq_hz = read_ul_value(buf);
-		ad9361_set_rx_sampling_freq (ad9361_phy, sampling_freq_hz);
+	if(strequal(channel, "volatge0") || strequal(channel, "volatge1")) {
+		uint32_t ch_num = strequal(channel, "voltage0") ? 0 : 1;
+		if (strequal(attr, "sampling_frequency")) {
+			uint32_t sampling_freq_hz = read_ul_value(buf);
+			ad9361_set_rx_sampling_freq (ad9361_phy, sampling_freq_hz);
+				return len;
+		}
+		if (strequal(attr, "filter_fir_en")) {
+			int8_t en_dis = read_value(buf);
+			if(en_dis < 0) {
+				return en_dis;
+			}
+			en_dis = en_dis ? 1 : 0;
+			if(ch_out) {
+				ad9361_set_tx_fir_en_dis (ad9361_phy, en_dis);
+			}
+			else {
+				ad9361_set_rx_fir_en_dis (ad9361_phy, en_dis);
+			}
+
 			return len;
-	}
-	if (strequal(attr, "filter_fir_en")) {
-		int8_t en_dis = read_value(buf);
-		if(en_dis < 0) {
-			return en_dis;
 		}
-		en_dis = en_dis ? 1 : 0;
-		if(ch_out) {
-			ad9361_set_tx_fir_en_dis (ad9361_phy, en_dis);
+		if (strequal(attr, "bb_dc_offset_tracking_en")) {
+			int8_t en_dis = read_value(buf);
+			if(en_dis < 0) {
+				return en_dis;
+			}
+			ad9361_phy->bbdc_track_en = en_dis ? 1 : 0;
+			if(!ch_out) {
+				return ad9361_tracking_control(ad9361_phy, ad9361_phy->bbdc_track_en, ad9361_phy->rfdc_track_en, ad9361_phy->quad_track_en);
+			}
+			return -ENOENT;
 		}
-		else {
-			ad9361_set_rx_fir_en_dis (ad9361_phy, en_dis);
+		if (strequal(attr, "quadrature_tracking_en")) {
+			int8_t en_dis = read_value(buf);
+			if(en_dis < 0) {
+				return en_dis;
+			}
+			ad9361_phy->quad_track_en = en_dis ? 1 : 0;
+			if(!ch_out) {
+				return ad9361_tracking_control(ad9361_phy, ad9361_phy->bbdc_track_en, ad9361_phy->rfdc_track_en, ad9361_phy->quad_track_en);
+			}
+			return -ENOENT;
+		}
+		if (strequal(attr, "rf_dc_offset_tracking_en")) {
+			int8_t en_dis = read_value(buf);
+			if(en_dis < 0) {
+				return en_dis;
+			}
+			ad9361_phy->rfdc_track_en = en_dis ? 1 : 0;
+			if(!ch_out) {
+				return ad9361_tracking_control(ad9361_phy, ad9361_phy->bbdc_track_en, ad9361_phy->rfdc_track_en, ad9361_phy->quad_track_en);
+			}
+			return -ENOENT;
 		}
 
-		return len;
-	}
-	if (strequal(attr, "bb_dc_offset_tracking_en")) {
-		int8_t en_dis = read_value(buf);
-		if(en_dis < 0) {
-			return en_dis;
+		if (strequal(attr, "rf_port_select")) {
+			uint32_t i = 0;
+			if(ch_out) {
+				for(i = 0; i < sizeof(ad9361_rf_tx_port) / sizeof(ad9361_rf_tx_port[0]); i++) {
+					if(strequal(ad9361_rf_tx_port[i], buf)) {
+						break;
+					}
+				}
+				if(i >= sizeof(ad9361_rf_tx_port) / sizeof(ad9361_rf_tx_port[0])) {
+					return -EINVAL;
+				}
+				ret = ad9361_set_tx_rf_port_output(ad9361_phy, i);
+				return ret < 0 ? ret : len;
+			}
+			else {
+				for(i = 0; i < sizeof(ad9361_rf_rx_port) / sizeof(ad9361_rf_rx_port[0]); i++) {
+					if(strequal(ad9361_rf_rx_port[i], buf)) {
+						break;
+					}
+				}
+				if(i >= sizeof(ad9361_rf_tx_port) / sizeof(ad9361_rf_tx_port[0])) {
+					return -EINVAL;
+				}
+				ret = ad9361_set_rx_rf_port_input(ad9361_phy, i);
+				return ret < 0 ? ret : len;
+			}
 		}
-		ad9361_phy->bbdc_track_en = en_dis ? 1 : 0;
-		if(!ch_out) {
-			return ad9361_tracking_control(ad9361_phy, ad9361_phy->bbdc_track_en, ad9361_phy->rfdc_track_en, ad9361_phy->quad_track_en);
-		}
-		return -ENOENT;
-	}
-	if (strequal(attr, "quadrature_tracking_en")) {
-		int8_t en_dis = read_value(buf);
-		if(en_dis < 0) {
-			return en_dis;
-		}
-		ad9361_phy->quad_track_en = en_dis ? 1 : 0;
-		if(!ch_out) {
-			return ad9361_tracking_control(ad9361_phy, ad9361_phy->bbdc_track_en, ad9361_phy->rfdc_track_en, ad9361_phy->quad_track_en);
-		}
-		return -ENOENT;
-	}
-	if (strequal(attr, "rf_dc_offset_tracking_en")) {
-		int8_t en_dis = read_value(buf);
-		if(en_dis < 0) {
-			return en_dis;
-		}
-		ad9361_phy->rfdc_track_en = en_dis ? 1 : 0;
-		if(!ch_out) {
-			return ad9361_tracking_control(ad9361_phy, ad9361_phy->bbdc_track_en, ad9361_phy->rfdc_track_en, ad9361_phy->quad_track_en);
-		}
-		return -ENOENT;
-	}
-
-	if (strequal(attr, "rf_port_select")) {
-		uint32_t i = 0;
-		if(ch_out) {
-			for(i = 0; i < sizeof(ad9361_rf_tx_port) / sizeof(ad9361_rf_tx_port[0]); i++) {
-				if(strequal(ad9361_rf_tx_port[i], buf)) {
+		if (strequal(attr, "gain_control_mode")) {
+			struct rf_gain_ctrl gc = {0};
+			int i;
+			for(i = 0; i < sizeof(ad9361_agc_modes) / sizeof(ad9361_agc_modes[0]); i++) {
+				if(strequal(ad9361_agc_modes[i], buf)) {
 					break;
 				}
 			}
-			if(i >= sizeof(ad9361_rf_tx_port) / sizeof(ad9361_rf_tx_port[0])) {
+			if(i >= sizeof(ad9361_agc_modes) / sizeof(ad9361_agc_modes[0])) {
 				return -EINVAL;
 			}
-			ret = ad9361_set_tx_rf_port_output(ad9361_phy, i);
-			return ret < 0 ? ret : len;
+			uint32_t mode = i;
+			if (ad9361_phy->agc_mode[ch_num] == mode)
+				return len;
+			gc.ant = ad9361_1rx1tx_channel_map(ad9361_phy, false, ch_num + 1);
+			gc.mode = ad9361_phy->agc_mode[ch_num] = mode;
+			ad9361_set_gain_ctrl_mode(ad9361_phy, &gc);
+			return len;
 		}
-		else {
-			for(i = 0; i < sizeof(ad9361_rf_rx_port) / sizeof(ad9361_rf_rx_port[0]); i++) {
-				if(strequal(ad9361_rf_rx_port[i], buf)) {
-					break;
+		if (strequal(attr, "rf_bandwidth")) {
+			uint32_t rf_bandwidth = read_ul_value(buf);
+			rf_bandwidth = ad9361_validate_rf_bw(ad9361_phy, rf_bandwidth);
+			if(ch_out) {
+				if(ad9361_phy->current_tx_bw_Hz != rf_bandwidth) {
+					ret = ad9361_update_rf_bandwidth(ad9361_phy, ad9361_phy->current_rx_bw_Hz, rf_bandwidth);
 				}
 			}
-			if(i >= sizeof(ad9361_rf_tx_port) / sizeof(ad9361_rf_tx_port[0])) {
-				return -EINVAL;
+			else {
+				if(ad9361_phy->current_rx_bw_Hz != rf_bandwidth) {
+					ret = ad9361_update_rf_bandwidth(ad9361_phy, rf_bandwidth, ad9361_phy->current_tx_bw_Hz);
+				}
 			}
-			ret = ad9361_set_rx_rf_port_input(ad9361_phy, i);
-			return ret < 0 ? ret : len;
-		}
-	}
-	if (strequal(attr, "gain_control_mode")) {
-		struct rf_gain_ctrl gc = {0};
-		int i;
-		for(i = 0; i < sizeof(ad9361_agc_modes) / sizeof(ad9361_agc_modes[0]); i++) {
-			if(strequal(ad9361_agc_modes[i], buf)) {
-				break;
-			}
-		}
-		if(i >= sizeof(ad9361_agc_modes) / sizeof(ad9361_agc_modes[0])) {
-			return -EINVAL;
-		}
-		uint32_t mode = i;
-		if (ad9361_phy->agc_mode[ch_num] == mode)
 			return len;
-		gc.ant = ad9361_1rx1tx_channel_map(ad9361_phy, false, ch_num + 1);
-		gc.mode = ad9361_phy->agc_mode[ch_num] = mode;
-		ad9361_set_gain_ctrl_mode(ad9361_phy, &gc);
-		return len;
-	}
-	if (strequal(attr, "rf_bandwidth")) {
-		uint32_t rf_bandwidth = read_ul_value(buf);
-		rf_bandwidth = ad9361_validate_rf_bw(ad9361_phy, rf_bandwidth);
-		if(ch_out) {
-			if(ad9361_phy->current_tx_bw_Hz != rf_bandwidth) {
-				ret = ad9361_update_rf_bandwidth(ad9361_phy, ad9361_phy->current_rx_bw_Hz, rf_bandwidth);
-			}
 		}
-		else {
-			if(ad9361_phy->current_rx_bw_Hz != rf_bandwidth) {
-				ret = ad9361_update_rf_bandwidth(ad9361_phy, rf_bandwidth, ad9361_phy->current_tx_bw_Hz);
+		if (strequal(attr, "hardwaregain")) {
+			float gain = strtof(buf, NULL);
+			int32_t val1 = (int32_t)gain;
+			int32_t val2 = (int32_t)(gain * 1000) % 1000;
+			if (ch_out) {
+				int ch;
+				if (val1 > 0 || (val1 == 0 && val2 > 0)) {
+					return -EINVAL;
+				}
+				uint32_t code = ((abs(val1) * 1000) + (abs(val2)/* / 1000*/));
+				ch = ad9361_1rx1tx_channel_map(ad9361_phy, true, ch_num);
+				ret = ad9361_set_tx_atten(ad9361_phy, code, ch == 0, ch == 1,
+						!ad9361_phy->pdata->update_tx_gain_via_alert);
+				if (ret < 0) {
+					return -EINVAL;
+				}
+			} else {
+				struct rf_rx_gain rx_gain = {0};
+				rx_gain.gain_db = val1;
+				ret = ad9361_set_rx_gain(ad9361_phy,
+						ad9361_1rx1tx_channel_map(ad9361_phy, false, ch_num + 1), &rx_gain);
+				if (ret < 0) {
+					return -EINVAL;
+				}
 			}
+			return len;
 		}
-		return len;
 	}
-	if (strequal(attr, "hardwaregain")) {
-		float gain = strtof(buf, NULL);
-		int32_t val1 = (int32_t)gain;
-		int32_t val2 = (int32_t)(gain * 1000) % 1000;
-		if (ch_out) {
-			int ch;
-			if (val1 > 0 || (val1 == 0 && val2 > 0)) {
-				return -EINVAL;
-			}
-			uint32_t code = ((abs(val1) * 1000) + (abs(val2)/* / 1000*/));
-			ch = ad9361_1rx1tx_channel_map(ad9361_phy, true, ch_num);
-			ret = ad9361_set_tx_atten(ad9361_phy, code, ch == 0, ch == 1,
-					!ad9361_phy->pdata->update_tx_gain_via_alert);
-			if (ret < 0) {
-				return -EINVAL;
-			}
-		} else {
-			struct rf_rx_gain rx_gain = {0};
-			rx_gain.gain_db = val1;
-			ret = ad9361_set_rx_gain(ad9361_phy,
-					ad9361_1rx1tx_channel_map(ad9361_phy, false, ch_num + 1), &rx_gain);
-			if (ret < 0) {
-				return -EINVAL;
-			}
-		}
-		return len;
-	}
-
-
 
 
 	return -ENOENT;
