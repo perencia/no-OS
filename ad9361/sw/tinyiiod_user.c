@@ -832,8 +832,7 @@ ssize_t get_frequency(char *buf, size_t len, const struct channel_info *channel)
 	u64 val = 0;
 	val = ad9361_from_clk(clk_get_rate(ad9361_phy, ad9361_phy->ref_clk_scale[channel->ch_num ?
 				TX_RFPLL : RX_RFPLL]));
-//	clk_get_rate(ad9361_phy, ad9361_phy->ref_clk_scale[BB_REFCLK]);
-	return sprintf(buf, "%llu", val);
+	return sprintf(buf, "%llu", /*ad9361_from_clk*/(val));
 }
 
 ssize_t get_external(char *buf, size_t len, const struct channel_info *channel) {
@@ -856,6 +855,17 @@ static struct attrtibute_map altvoltage0_read_attrtibute_map[] = {
 	{"frequency", get_frequency},
 	{"external", get_external},
 	{"fastlock_recall", get_fastlock_recall},
+};
+
+static struct attrtibute_map altvoltage1_read_attrtibute_map[] = {
+	{"external", get_external},
+	{"frequency", get_frequency},
+	{"fastlock_store", get_fastlock_store},
+	{"fastlock_recall", get_fastlock_recall},
+	{"powerdown", get_powerdown},
+	{"fastlock_save", get_fastlock_save},
+	{"frequency_available", get_frequency_available},
+	{"fastlock_load", get_fastlock_load},
 };
 
 /***********************************************************************************************************************
@@ -898,7 +908,10 @@ static ssize_t ch_read_attr(const char *device, const char *channel,
 				return altvoltage0_read_attrtibute_map[attribute_id].exec(buf, len, &channel_info);
 			}
 			if(strequal(attr, "")) {
-				return read_all_attr(buf, len, &channel_info, altvoltage0_read_attrtibute_map, ARRAY_SIZE(altvoltage0_read_attrtibute_map));
+				if(channel_info.ch_num == 0)
+					return read_all_attr(buf, len, &channel_info, altvoltage0_read_attrtibute_map, ARRAY_SIZE(altvoltage0_read_attrtibute_map));
+				else
+					return read_all_attr(buf, len, &channel_info, altvoltage1_read_attrtibute_map, ARRAY_SIZE(altvoltage1_read_attrtibute_map));
 			}
 		}
 		else if(strequal(channel, "temp0")) {
@@ -1133,23 +1146,78 @@ ssize_t set_frequency_available(char *buf, size_t len, const struct channel_info
 }
 
 ssize_t set_fastlock_save(char *buf, size_t len, const struct channel_info *channel) {
-	return -ENODEV;
+	u32 readin = read_ul_value(buf);
+	ad9361_phy->fastlock.save_profile = readin;
+	return len;
 }
 
 ssize_t set_powerdown(char *buf, size_t len, const struct channel_info *channel) {
-	return -ENODEV;
+	ssize_t ret;
+	bool res = read_value(buf) ? 1 : 0;
+	switch (channel->ch_num) {
+		case 0:
+			ret = ad9361_synth_lo_powerdown(ad9361_phy, res ? LO_OFF : LO_ON, LO_DONTCARE);
+			break;
+		case 1:
+			ret = ad9361_synth_lo_powerdown(ad9361_phy, LO_DONTCARE, res ? LO_OFF : LO_ON);
+			break;
+	}
+	if(ret < 0)
+		return ret;
+	return len;
 }
 
 ssize_t set_fastlock_load(char *buf, size_t len, const struct channel_info *channel) {
-	return -ENODEV;
+	ssize_t ret;
+	char *line, *ptr = (char*) buf;
+	u8 faslock_vals[16];
+	unsigned int profile = 0, val, val2, i = 0;
+
+	while ((line = strsep(&ptr, ","))) {
+		if (line >= buf + len)
+			break;
+
+		ret = sscanf(line, "%u %u", &val, &val2);
+		if (ret == 1) {
+			faslock_vals[i++] = val;
+			continue;
+		} else if (ret == 2) {
+			profile = val;
+			faslock_vals[i++] = val2;
+			continue;
+		}
+	}
+	if (i == 16)
+		ret = ad9361_fastlock_load(ad9361_phy, channel->ch_num == 1,
+					   profile, faslock_vals);
+	else
+		ret = -EINVAL;
+	if(ret < 0)
+		return ret;
+	return len;
 }
 
 ssize_t set_fastlock_store(char *buf, size_t len, const struct channel_info *channel) {
-	return -ENODEV;
+	uint32_t profile = read_ul_value(buf);
+	return ad9361_fastlock_store(ad9361_phy, channel->ch_num == 1, profile);
 }
 
 ssize_t set_frequency(char *buf, size_t len, const struct channel_info *channel) {
-	return -ENODEV;
+	uint64_t lo_freq_hz = read_ul_value(buf);
+	ssize_t ret = 0;
+	switch (channel->ch_num) {
+	case 0:
+		ret = clk_set_rate(ad9361_phy, ad9361_phy->ref_clk_scale[RX_RFPLL], ad9361_to_clk(lo_freq_hz));
+		break;
+	case 1:
+		ret = clk_set_rate(ad9361_phy, ad9361_phy->ref_clk_scale[TX_RFPLL], ad9361_to_clk(lo_freq_hz));
+		break;
+	default:
+		ret = -EINVAL;
+	}
+	if(ret < 0)
+		return ret;
+	return len;
 }
 
 ssize_t set_external(char *buf, size_t len, const struct channel_info *channel) {
@@ -1165,9 +1233,13 @@ ssize_t set_external(char *buf, size_t len, const struct channel_info *channel) 
 }
 
 ssize_t set_fastlock_recall(char *buf, size_t len, const struct channel_info *channel) {
-	return -ENODEV;
+	ssize_t ret;
+	uint32_t profile = read_ul_value(buf);
+	ret = ad9361_fastlock_recall(ad9361_phy, channel->ch_num == 1, profile);
+	if(ret < 0)
+		return ret;
+	return len;
 }
-
 
 static struct attrtibute_map altvoltage0_write_attrtibute_map[] = {
 	{"frequency_available", set_frequency_available},
@@ -1178,6 +1250,17 @@ static struct attrtibute_map altvoltage0_write_attrtibute_map[] = {
 	{"frequency", set_frequency},
 	{"external", set_external},
 	{"fastlock_recall", set_fastlock_recall},
+};
+
+static struct attrtibute_map altvoltage1_write_attrtibute_map[] = {
+	{"external", set_external},
+	{"frequency", set_frequency},
+	{"fastlock_store", set_fastlock_store},
+	{"fastlock_recall", set_fastlock_recall},
+	{"powerdown", set_powerdown},
+	{"fastlock_save", set_fastlock_save},
+	{"frequency_available", set_frequency_available},
+	{"fastlock_load", set_fastlock_load},
 };
 /***********************************************************************************************************************
 * Function Name: ch_write_attr
@@ -1218,7 +1301,10 @@ static ssize_t ch_write_attr(const char *device, const char *channel,
 			return altvoltage0_write_attrtibute_map[attribute_id].exec((char*)buf, len, &channel_info);
 		}
 		if(strequal(attr, "")) {
-			return write_all_attr((char*)buf, len, &channel_info, altvoltage0_write_attrtibute_map, ARRAY_SIZE(altvoltage0_write_attrtibute_map));
+			if(channel_info.ch_num == 0)
+				return write_all_attr((char*)buf, len, &channel_info, altvoltage0_write_attrtibute_map, ARRAY_SIZE(altvoltage0_write_attrtibute_map));
+			else
+				return write_all_attr((char*)buf, len, &channel_info, altvoltage1_write_attrtibute_map, ARRAY_SIZE(altvoltage1_write_attrtibute_map));
 		}
 		return -ENOENT;
 	}
