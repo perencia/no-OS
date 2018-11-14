@@ -207,7 +207,7 @@ struct channel_info {
 
 struct attrtibute_map {
 	char *attr_name;
-	ssize_t (*exec_attribute)(char *buf, size_t len, const struct channel_info *channel);
+	ssize_t (*exec)(char *buf, size_t len, const struct channel_info *channel);
 };
 
 int16_t get_attribute_id(const char *attr, const struct attrtibute_map* map, int map_size) {
@@ -334,7 +334,7 @@ static ssize_t read_all_attr(char *buf, size_t len, const struct channel_info *c
 	char local_buf[0x1000];
 	for(i = 0; i < map_size; i++) {
 
-		int16_t attr_length = map[i].exec_attribute((local_buf), len, channel);
+		int16_t attr_length = map[i].exec((local_buf), len, channel);
 		int32_t *len = (int32_t *)(buf + j);
 		*len = Xil_EndianSwap32(attr_length);
 
@@ -355,7 +355,7 @@ static ssize_t write_all_attr(char *buf, size_t len, const struct channel_info *
 //	char local_buf[0x1000];
 //	for(i = 0; i < map_size; i++) {
 //
-//		int16_t attr_length = map[i].exec_attribute((local_buf), len, channel);
+//		int16_t attr_length = map[i].exec((local_buf), len, channel);
 //		int32_t *len = (int32_t *)(buf + j);
 //		*len = Xil_EndianSwap32(attr_length);
 //
@@ -406,7 +406,7 @@ static ssize_t read_attr(const char *device, const char *attr,
 	if(strequal(device, "ad9361-phy")) {
 		int16_t attribute_id = get_attribute_id(attr, global_read_attrtibute_map, ARRAY_SIZE(global_read_attrtibute_map));
 		if(attribute_id >= 0) {
-			return global_read_attrtibute_map[attribute_id].exec_attribute(buf, len, NULL);
+			return global_read_attrtibute_map[attribute_id].exec(buf, len, NULL);
 		}
 		if(strequal(attr, "")) {
 			return read_all_attr(buf, len, NULL, global_read_attrtibute_map, ARRAY_SIZE(global_read_attrtibute_map));
@@ -553,7 +553,7 @@ static ssize_t write_attr(const char *device, const char *attr,
 	if(strequal(device, "ad9361-phy")) {
 		int16_t attribute_id = get_attribute_id(attr, global_write_attrtibute_map, ARRAY_SIZE(global_write_attrtibute_map));
 		if(attribute_id >= 0) {
-			return global_write_attrtibute_map[attribute_id].exec_attribute((char*)buf, len, NULL);
+			return global_write_attrtibute_map[attribute_id].exec((char*)buf, len, NULL);
 		}
 		if(strequal(attr, "")) {
 			return write_all_attr((char*)buf, len, NULL, global_write_attrtibute_map, ARRAY_SIZE(global_write_attrtibute_map));
@@ -791,6 +791,73 @@ static struct attrtibute_map ch_out_read_attrtibute_map[] = {
 	{"rf_bandwidth", get_rf_bandwidth},
 };
 
+ssize_t get_frequency_available(char *buf, size_t len, const struct channel_info *channel) {
+	return sprintf(buf, "[%llu 1 %llu]", AD9363A_MIN_CARRIER_FREQ_HZ, AD9363A_MAX_CARRIER_FREQ_HZ);
+}
+
+ssize_t get_fastlock_save(char *buf, size_t len, const struct channel_info *channel) {
+	u8 faslock_vals[16];
+	size_t length;
+	int ret = 0;
+	int i;
+	ret = ad9361_fastlock_save(ad9361_phy, channel->ch_num == 1,
+			ad9361_phy->fastlock.save_profile, faslock_vals);
+	length = sprintf(buf, "%u ", ad9361_phy->fastlock.save_profile);
+
+	for (i = 0; i < RX_FAST_LOCK_CONFIG_WORD_NUM; i++)
+		length += sprintf(buf + length, "%u%c", faslock_vals[i],
+				   i == 15 ? '\n' : ',');
+	if(ret < 0)
+		return ret;
+	return length;
+}
+
+ssize_t get_powerdown(char *buf, size_t len, const struct channel_info *channel) {
+	u64 val = 0;
+	val = !!(ad9361_phy->cached_synth_pd[channel->ch_num ? 0 : 1] & RX_LO_POWER_DOWN);
+	return sprintf(buf, "%llu", val);
+}
+
+ssize_t get_fastlock_load(char *buf, size_t len, const struct channel_info *channel) {
+
+	return -ENODEV;
+}
+
+ssize_t get_fastlock_store(char *buf, size_t len, const struct channel_info *channel) {
+	return -ENODEV;
+
+}
+
+ssize_t get_frequency(char *buf, size_t len, const struct channel_info *channel) {
+	u64 val = 0;
+	val = ad9361_from_clk(clk_get_rate(ad9361_phy, ad9361_phy->ref_clk_scale[channel->ch_num ?
+				TX_RFPLL : RX_RFPLL]));
+//	clk_get_rate(ad9361_phy, ad9361_phy->ref_clk_scale[BB_REFCLK]);
+	return sprintf(buf, "%llu", val);
+}
+
+ssize_t get_external(char *buf, size_t len, const struct channel_info *channel) {
+	if(channel->ch_num == 0)
+		return (ssize_t) sprintf(buf, "%d", ad9361_phy->pdata->use_ext_rx_lo);
+	else
+		return (ssize_t) sprintf(buf, "%d", ad9361_phy->pdata->use_ext_tx_lo);
+}
+
+ssize_t get_fastlock_recall(char *buf, size_t len, const struct channel_info *channel) {
+	return sprintf(buf, "%d", ad9361_phy->fastlock.current_profile[channel->ch_num]);
+}
+
+static struct attrtibute_map altvoltage0_read_attrtibute_map[] = {
+	{"frequency_available", get_frequency_available},
+	{"fastlock_save", get_fastlock_save},
+	{"powerdown", get_powerdown},
+	{"fastlock_load", get_fastlock_load},
+	{"fastlock_store", get_fastlock_store},
+	{"frequency", get_frequency},
+	{"external", get_external},
+	{"fastlock_recall", get_fastlock_recall},
+};
+
 /***********************************************************************************************************************
 * Function Name: ch_read_attr
 * Description  : None
@@ -801,19 +868,18 @@ static ssize_t ch_read_attr(const char *device, const char *channel,
 		bool ch_out, const char *attr, char *buf, size_t len)
 {
 	int32_t temp;
-	const struct channel_info channel_info = {
-			strequal(channel, "voltage0") ? 0 : 1,
-			ch_out
-		};
+	int16_t attribute_id;
 	if (!dev_is_ad9361_module(device))
 		return -ENODEV;
-
 	if(strequal(device, "ad9361-phy")) { // global attributes
 		if(strequal(channel, "voltage0") || strequal(channel, "voltage1")) {
-			int16_t attribute_id;
+			const struct channel_info channel_info = {
+						strequal(channel, "voltage0") ? 0 : 1,
+						ch_out
+					};
 			attribute_id = get_attribute_id(attr, ch_in_read_attrtibute_map, ARRAY_SIZE(ch_in_read_attrtibute_map));
 			if(attribute_id >= 0) {
-				return ch_in_read_attrtibute_map[attribute_id].exec_attribute(buf, len, &channel_info);
+				return ch_in_read_attrtibute_map[attribute_id].exec(buf, len, &channel_info);
 			}
 			if(strequal(attr, "")) {
 				if(ch_out)
@@ -822,7 +888,20 @@ static ssize_t ch_read_attr(const char *device, const char *channel,
 					return read_all_attr(buf, len, &channel_info, ch_in_read_attrtibute_map, ARRAY_SIZE(ch_in_read_attrtibute_map));
 			}
 		}
-		if(strequal(channel, "temp0")) {
+		else if(strequal(channel, "altvoltage0") || strequal(channel, "altvoltage1")) {
+			const struct channel_info channel_info = {
+					strequal(channel, "altvoltage0") ? 0 : 1,
+					ch_out
+				};
+			attribute_id = get_attribute_id(attr, altvoltage0_read_attrtibute_map, ARRAY_SIZE(altvoltage0_read_attrtibute_map));
+			if(attribute_id >= 0) {
+				return altvoltage0_read_attrtibute_map[attribute_id].exec(buf, len, &channel_info);
+			}
+			if(strequal(attr, "")) {
+				return read_all_attr(buf, len, &channel_info, altvoltage0_read_attrtibute_map, ARRAY_SIZE(altvoltage0_read_attrtibute_map));
+			}
+		}
+		else if(strequal(channel, "temp0")) {
 			if(strequal(attr, "input")) {
 				ad9361_get_temperature(ad9361_phy, &temp);
 					return (ssize_t) snprintf(buf, len, "%d", (int)temp);
@@ -838,6 +917,268 @@ static ssize_t ch_read_attr(const char *device, const char *channel,
 	return -ENOENT;
 }
 
+ssize_t set_hardwaregain_available(char *buf, size_t len, const struct channel_info *channel) {
+	return -ENODEV;
+}
+
+ssize_t set_hardwaregain(char *buf, size_t len, const struct channel_info *channel) {
+	ssize_t ret;
+	float gain = strtof(buf, NULL);
+	int32_t val1 = (int32_t)gain;
+	int32_t val2 = (int32_t)(gain * 1000) % 1000;
+	if (channel->ch_out) {
+		int ch;
+		if (val1 > 0 || (val1 == 0 && val2 > 0)) {
+			return -EINVAL;
+		}
+		uint32_t code = ((abs(val1) * 1000) + (abs(val2)/* / 1000*/));
+		ch = ad9361_1rx1tx_channel_map(ad9361_phy, true, channel->ch_num);
+		ret = ad9361_set_tx_atten(ad9361_phy, code, ch == 0, ch == 1,
+				!ad9361_phy->pdata->update_tx_gain_via_alert);
+		if (ret < 0) {
+			return -EINVAL;
+		}
+	} else {
+		struct rf_rx_gain rx_gain = {0};
+		rx_gain.gain_db = val1;
+		ret = ad9361_set_rx_gain(ad9361_phy,
+				ad9361_1rx1tx_channel_map(ad9361_phy, false, channel->ch_num + 1), &rx_gain);
+		if (ret < 0) {
+			return -EINVAL;
+		}
+	}
+	return len;
+}
+
+ssize_t set_rssi(char *buf, size_t len, const struct channel_info *channel) {
+	return -ENODEV;
+}
+
+ssize_t set_rf_port_select(char *buf, size_t len, const struct channel_info *channel) {
+	ssize_t ret;
+	uint32_t i = 0;
+	if(channel->ch_out) {
+		for(i = 0; i < sizeof(ad9361_rf_tx_port) / sizeof(ad9361_rf_tx_port[0]); i++) {
+			if(strequal(ad9361_rf_tx_port[i], buf)) {
+				break;
+			}
+		}
+		if(i >= sizeof(ad9361_rf_tx_port) / sizeof(ad9361_rf_tx_port[0])) {
+			return -EINVAL;
+		}
+		ret = ad9361_set_tx_rf_port_output(ad9361_phy, i);
+		return ret < 0 ? ret : len;
+	}
+	else {
+		for(i = 0; i < sizeof(ad9361_rf_rx_port) / sizeof(ad9361_rf_rx_port[0]); i++) {
+			if(strequal(ad9361_rf_rx_port[i], buf)) {
+				break;
+			}
+		}
+		if(i >= sizeof(ad9361_rf_tx_port) / sizeof(ad9361_rf_tx_port[0])) {
+			return -EINVAL;
+		}
+		ret = ad9361_set_rx_rf_port_input(ad9361_phy, i);
+		return ret < 0 ? ret : len;
+	}
+}
+
+ssize_t set_gain_control_mode(char *buf, size_t len, const struct channel_info *channel) {
+	return -ENODEV;
+}
+
+ssize_t set_rf_port_select_available(char *buf, size_t len, const struct channel_info *channel) {
+	return -ENODEV;
+}
+
+ssize_t set_rf_bandwidth(char *buf, size_t len, const struct channel_info *channel) {
+	ssize_t ret;
+	uint32_t rf_bandwidth = read_ul_value(buf);
+	rf_bandwidth = ad9361_validate_rf_bw(ad9361_phy, rf_bandwidth);
+	if(channel->ch_out) {
+		if(ad9361_phy->current_tx_bw_Hz != rf_bandwidth) {
+			ret = ad9361_update_rf_bandwidth(ad9361_phy, ad9361_phy->current_rx_bw_Hz, rf_bandwidth);
+		}
+	}
+	else {
+		if(ad9361_phy->current_rx_bw_Hz != rf_bandwidth) {
+			ret = ad9361_update_rf_bandwidth(ad9361_phy, rf_bandwidth, ad9361_phy->current_tx_bw_Hz);
+		}
+	}
+	if(ret < 0) {
+		return ret;
+	}
+	return len;
+}
+
+ssize_t set_rf_dc_offset_tracking_en(char *buf, size_t len, const struct channel_info *channel) {
+	int8_t en_dis = read_value(buf);
+	if(en_dis < 0) {
+		return en_dis;
+	}
+	ad9361_phy->rfdc_track_en = en_dis ? 1 : 0;
+	if(!channel->ch_out) {
+		return ad9361_tracking_control(ad9361_phy, ad9361_phy->bbdc_track_en, ad9361_phy->rfdc_track_en, ad9361_phy->quad_track_en);
+	}
+	return -ENOENT;
+}
+
+ssize_t set_sampling_frequency_available(char *buf, size_t len, const struct channel_info *channel) {
+	return -ENODEV;
+}
+
+ssize_t set_quadrature_tracking_en(char *buf, size_t len, const struct channel_info *channel) {
+	int8_t en_dis = read_value(buf);
+	if(en_dis < 0) {
+		return en_dis;
+	}
+	ad9361_phy->quad_track_en = en_dis ? 1 : 0;
+	if(!channel->ch_out) {
+		return ad9361_tracking_control(ad9361_phy, ad9361_phy->bbdc_track_en, ad9361_phy->rfdc_track_en, ad9361_phy->quad_track_en);
+	}
+	return -ENOENT;
+}
+
+ssize_t set_sampling_frequency(char *buf, size_t len, const struct channel_info *channel) {
+	uint32_t sampling_freq_hz = read_ul_value(buf);
+	ad9361_set_rx_sampling_freq (ad9361_phy, sampling_freq_hz);
+	return len;
+}
+
+ssize_t set_gain_control_mode_available(char *buf, size_t len, const struct channel_info *channel) {
+	struct rf_gain_ctrl gc = {0};
+	int i;
+	for(i = 0; i < sizeof(ad9361_agc_modes) / sizeof(ad9361_agc_modes[0]); i++) {
+		if(strequal(ad9361_agc_modes[i], buf)) {
+			break;
+		}
+	}
+	if(i >= sizeof(ad9361_agc_modes) / sizeof(ad9361_agc_modes[0])) {
+		return -EINVAL;
+	}
+	uint32_t mode = i;
+	if (ad9361_phy->agc_mode[channel->ch_num] == mode)
+		return len;
+	gc.ant = ad9361_1rx1tx_channel_map(ad9361_phy, false, channel->ch_num + 1);
+	gc.mode = ad9361_phy->agc_mode[channel->ch_num] = mode;
+	ad9361_set_gain_ctrl_mode(ad9361_phy, &gc);
+	return len;
+}
+
+ssize_t set_filter_fir_en(char *buf, size_t len, const struct channel_info *channel) {
+	int8_t en_dis = read_value(buf);
+	if(en_dis < 0) {
+		return en_dis;
+	}
+	en_dis = en_dis ? 1 : 0;
+	if(channel->ch_out) {
+		ad9361_set_tx_fir_en_dis (ad9361_phy, en_dis);
+	}
+	else {
+		ad9361_set_rx_fir_en_dis (ad9361_phy, en_dis);
+	}
+	return len;
+}
+
+ssize_t set_rf_bandwidth_available(char *buf, size_t len, const struct channel_info *channel) {
+	return -ENODEV;
+}
+
+ssize_t set_bb_dc_offset_tracking_en(char *buf, size_t len, const struct channel_info *channel) {
+	int8_t en_dis = read_value(buf);
+	if(en_dis < 0) {
+		return en_dis;
+	}
+	ad9361_phy->bbdc_track_en = en_dis ? 1 : 0;
+	if(!channel->ch_out) {
+		return ad9361_tracking_control(ad9361_phy, ad9361_phy->bbdc_track_en, ad9361_phy->rfdc_track_en, ad9361_phy->quad_track_en);
+	}
+	return -ENOENT;
+}
+
+static struct attrtibute_map ch_in_write_attrtibute_map[] = {
+	{"hardwaregain_available", set_hardwaregain_available},
+	{"hardwaregain", set_hardwaregain},
+	{"rssi", set_rssi},
+	{"rf_port_select", set_rf_port_select},
+	{"gain_control_mode", set_gain_control_mode},
+	{"rf_port_select_available", set_rf_port_select_available},
+	{"rf_bandwidth", set_rf_bandwidth},
+	{"rf_dc_offset_tracking_en", set_rf_dc_offset_tracking_en},
+	{"sampling_frequency_available", set_sampling_frequency_available},
+	{"quadrature_tracking_en", set_quadrature_tracking_en},
+	{"sampling_frequency", set_sampling_frequency},
+	{"gain_control_mode_available", set_gain_control_mode_available},
+	{"filter_fir_en", set_filter_fir_en},
+	{"rf_bandwidth_available", set_rf_bandwidth_available},
+	{"bb_dc_offset_tracking_en", set_bb_dc_offset_tracking_en},
+};
+
+static struct attrtibute_map ch_out_write_attrtibute_map[] = {
+	{"rf_port_select", set_rf_port_select},
+	{"hardwaregain", set_hardwaregain},
+	{"rssi", set_rssi},
+	{"hardwaregain_available", set_hardwaregain_available},
+	{"sampling_frequency_available", set_sampling_frequency_available},
+	{"rf_port_select_available", set_rf_port_select_available},
+	{"filter_fir_en", set_filter_fir_en},
+	{"sampling_frequency", set_sampling_frequency},
+	{"rf_bandwidth_available", set_rf_bandwidth_available},
+	{"rf_bandwidth", set_rf_bandwidth},
+};
+
+
+ssize_t set_frequency_available(char *buf, size_t len, const struct channel_info *channel) {
+	return -ENODEV;
+}
+
+ssize_t set_fastlock_save(char *buf, size_t len, const struct channel_info *channel) {
+	return -ENODEV;
+}
+
+ssize_t set_powerdown(char *buf, size_t len, const struct channel_info *channel) {
+	return -ENODEV;
+}
+
+ssize_t set_fastlock_load(char *buf, size_t len, const struct channel_info *channel) {
+	return -ENODEV;
+}
+
+ssize_t set_fastlock_store(char *buf, size_t len, const struct channel_info *channel) {
+	return -ENODEV;
+}
+
+ssize_t set_frequency(char *buf, size_t len, const struct channel_info *channel) {
+	return -ENODEV;
+}
+
+ssize_t set_external(char *buf, size_t len, const struct channel_info *channel) {
+	bool select = read_value(buf) ? 1 : 0;
+	ssize_t ret;
+	if(channel->ch_num == 0)
+		ret = ad9361_set_rx_lo_int_ext(ad9361_phy, select);
+	else
+		ret = ad9361_set_tx_lo_int_ext(ad9361_phy, select);
+	if(ret < 0)
+		return ret;
+	return len;
+}
+
+ssize_t set_fastlock_recall(char *buf, size_t len, const struct channel_info *channel) {
+	return -ENODEV;
+}
+
+
+static struct attrtibute_map altvoltage0_write_attrtibute_map[] = {
+	{"frequency_available", set_frequency_available},
+	{"fastlock_save", set_fastlock_save},
+	{"powerdown", set_powerdown},
+	{"fastlock_load", set_fastlock_load},
+	{"fastlock_store", set_fastlock_store},
+	{"frequency", set_frequency},
+	{"external", set_external},
+	{"fastlock_recall", set_fastlock_recall},
+};
 /***********************************************************************************************************************
 * Function Name: ch_write_attr
 * Description  : None
@@ -847,156 +1188,40 @@ static ssize_t ch_read_attr(const char *device, const char *channel,
 static ssize_t ch_write_attr(const char *device, const char *channel,
 		bool ch_out, const char *attr, const char *buf, size_t len)
 {
-	int ret;
 	if (!dev_is_ad9361_module(device))
-			return -ENODEV;
+		return -ENODEV;
 	if(strequal(channel, "voltage0") || strequal(channel, "voltage1")) {
-		uint32_t ch_num = strequal(channel, "voltage0") ? 0 : 1;
-		if (strequal(attr, "sampling_frequency")) {
-			uint32_t sampling_freq_hz = read_ul_value(buf);
-			ad9361_set_rx_sampling_freq (ad9361_phy, sampling_freq_hz);
-				return len;
+		const struct channel_info channel_info = {
+			strequal(channel, "voltage0") ? 0 : 1,
+			ch_out
+		};
+		int16_t attribute_id = get_attribute_id(attr, ch_in_write_attrtibute_map, ARRAY_SIZE(ch_in_write_attrtibute_map));
+		if(attribute_id >= 0) {
+			return ch_in_write_attrtibute_map[attribute_id].exec((char*)buf, len, &channel_info);
 		}
-		if (strequal(attr, "filter_fir_en")) {
-			int8_t en_dis = read_value(buf);
-			if(en_dis < 0) {
-				return en_dis;
-			}
-			en_dis = en_dis ? 1 : 0;
-			if(ch_out) {
-				ad9361_set_tx_fir_en_dis (ad9361_phy, en_dis);
-			}
-			else {
-				ad9361_set_rx_fir_en_dis (ad9361_phy, en_dis);
-			}
+		if(strequal(attr, "")) {
 
-			return len;
+			if(ch_out)
+				return write_all_attr((char*)buf, len, &channel_info, ch_out_write_attrtibute_map, ARRAY_SIZE(ch_out_write_attrtibute_map));
+			else
+				return write_all_attr((char*)buf, len, &channel_info, ch_in_write_attrtibute_map, ARRAY_SIZE(ch_in_write_attrtibute_map));
 		}
-		if (strequal(attr, "bb_dc_offset_tracking_en")) {
-			int8_t en_dis = read_value(buf);
-			if(en_dis < 0) {
-				return en_dis;
-			}
-			ad9361_phy->bbdc_track_en = en_dis ? 1 : 0;
-			if(!ch_out) {
-				return ad9361_tracking_control(ad9361_phy, ad9361_phy->bbdc_track_en, ad9361_phy->rfdc_track_en, ad9361_phy->quad_track_en);
-			}
-			return -ENOENT;
-		}
-		if (strequal(attr, "quadrature_tracking_en")) {
-			int8_t en_dis = read_value(buf);
-			if(en_dis < 0) {
-				return en_dis;
-			}
-			ad9361_phy->quad_track_en = en_dis ? 1 : 0;
-			if(!ch_out) {
-				return ad9361_tracking_control(ad9361_phy, ad9361_phy->bbdc_track_en, ad9361_phy->rfdc_track_en, ad9361_phy->quad_track_en);
-			}
-			return -ENOENT;
-		}
-		if (strequal(attr, "rf_dc_offset_tracking_en")) {
-			int8_t en_dis = read_value(buf);
-			if(en_dis < 0) {
-				return en_dis;
-			}
-			ad9361_phy->rfdc_track_en = en_dis ? 1 : 0;
-			if(!ch_out) {
-				return ad9361_tracking_control(ad9361_phy, ad9361_phy->bbdc_track_en, ad9361_phy->rfdc_track_en, ad9361_phy->quad_track_en);
-			}
-			return -ENOENT;
-		}
-
-		if (strequal(attr, "rf_port_select")) {
-			uint32_t i = 0;
-			if(ch_out) {
-				for(i = 0; i < sizeof(ad9361_rf_tx_port) / sizeof(ad9361_rf_tx_port[0]); i++) {
-					if(strequal(ad9361_rf_tx_port[i], buf)) {
-						break;
-					}
-				}
-				if(i >= sizeof(ad9361_rf_tx_port) / sizeof(ad9361_rf_tx_port[0])) {
-					return -EINVAL;
-				}
-				ret = ad9361_set_tx_rf_port_output(ad9361_phy, i);
-				return ret < 0 ? ret : len;
-			}
-			else {
-				for(i = 0; i < sizeof(ad9361_rf_rx_port) / sizeof(ad9361_rf_rx_port[0]); i++) {
-					if(strequal(ad9361_rf_rx_port[i], buf)) {
-						break;
-					}
-				}
-				if(i >= sizeof(ad9361_rf_tx_port) / sizeof(ad9361_rf_tx_port[0])) {
-					return -EINVAL;
-				}
-				ret = ad9361_set_rx_rf_port_input(ad9361_phy, i);
-				return ret < 0 ? ret : len;
-			}
-		}
-		if (strequal(attr, "gain_control_mode")) {
-			struct rf_gain_ctrl gc = {0};
-			int i;
-			for(i = 0; i < sizeof(ad9361_agc_modes) / sizeof(ad9361_agc_modes[0]); i++) {
-				if(strequal(ad9361_agc_modes[i], buf)) {
-					break;
-				}
-			}
-			if(i >= sizeof(ad9361_agc_modes) / sizeof(ad9361_agc_modes[0])) {
-				return -EINVAL;
-			}
-			uint32_t mode = i;
-			if (ad9361_phy->agc_mode[ch_num] == mode)
-				return len;
-			gc.ant = ad9361_1rx1tx_channel_map(ad9361_phy, false, ch_num + 1);
-			gc.mode = ad9361_phy->agc_mode[ch_num] = mode;
-			ad9361_set_gain_ctrl_mode(ad9361_phy, &gc);
-			return len;
-		}
-		if (strequal(attr, "rf_bandwidth")) {
-			uint32_t rf_bandwidth = read_ul_value(buf);
-			rf_bandwidth = ad9361_validate_rf_bw(ad9361_phy, rf_bandwidth);
-			if(ch_out) {
-				if(ad9361_phy->current_tx_bw_Hz != rf_bandwidth) {
-					ret = ad9361_update_rf_bandwidth(ad9361_phy, ad9361_phy->current_rx_bw_Hz, rf_bandwidth);
-				}
-			}
-			else {
-				if(ad9361_phy->current_rx_bw_Hz != rf_bandwidth) {
-					ret = ad9361_update_rf_bandwidth(ad9361_phy, rf_bandwidth, ad9361_phy->current_tx_bw_Hz);
-				}
-			}
-			return len;
-		}
-		if (strequal(attr, "hardwaregain")) {
-			float gain = strtof(buf, NULL);
-			int32_t val1 = (int32_t)gain;
-			int32_t val2 = (int32_t)(gain * 1000) % 1000;
-			if (ch_out) {
-				int ch;
-				if (val1 > 0 || (val1 == 0 && val2 > 0)) {
-					return -EINVAL;
-				}
-				uint32_t code = ((abs(val1) * 1000) + (abs(val2)/* / 1000*/));
-				ch = ad9361_1rx1tx_channel_map(ad9361_phy, true, ch_num);
-				ret = ad9361_set_tx_atten(ad9361_phy, code, ch == 0, ch == 1,
-						!ad9361_phy->pdata->update_tx_gain_via_alert);
-				if (ret < 0) {
-					return -EINVAL;
-				}
-			} else {
-				struct rf_rx_gain rx_gain = {0};
-				rx_gain.gain_db = val1;
-				ret = ad9361_set_rx_gain(ad9361_phy,
-						ad9361_1rx1tx_channel_map(ad9361_phy, false, ch_num + 1), &rx_gain);
-				if (ret < 0) {
-					return -EINVAL;
-				}
-			}
-			return len;
-		}
+		return -ENOENT;
 	}
-
-
+	else if(strequal(channel, "altvoltage0") || strequal(channel, "altvoltage1")) {
+		const struct channel_info channel_info = {
+				strequal(channel, "altvoltage0") ? 0 : 1,
+				ch_out
+			};
+		int16_t attribute_id = get_attribute_id(attr, altvoltage0_write_attrtibute_map, ARRAY_SIZE(altvoltage0_write_attrtibute_map));
+		if(attribute_id >= 0) {
+			return altvoltage0_write_attrtibute_map[attribute_id].exec((char*)buf, len, &channel_info);
+		}
+		if(strequal(attr, "")) {
+			return write_all_attr((char*)buf, len, &channel_info, altvoltage0_write_attrtibute_map, ARRAY_SIZE(altvoltage0_write_attrtibute_map));
+		}
+		return -ENOENT;
+	}
 	return -ENOENT;
 }
 
