@@ -760,7 +760,7 @@ ssize_t get_hardwaregain(char *buf, size_t len, const struct channel_info *chann
 
 }
 
-static struct attrtibute_map ch_in_read_attrtibute_map[] = {
+static struct attrtibute_map voltage0_input_read_map[] = {
 	{"hardwaregain_available", get_hardwaregain_available},
 	{"hardwaregain", get_hardwaregain},
 	{"rssi", get_rssi},
@@ -778,11 +778,42 @@ static struct attrtibute_map ch_in_read_attrtibute_map[] = {
 	{"bb_dc_offset_tracking_en", get_bb_dc_offset_tracking_en},
 };
 
-static struct attrtibute_map ch_out_read_attrtibute_map[] = {
+static struct attrtibute_map voltage1_input_read_map[] = {
+	{"rssi", get_rssi},
+	{"rf_port_select", get_rf_port_select},
+	{"hardwaregain", get_hardwaregain},
+	{"hardwaregain_available", get_hardwaregain_available},
+	{"gain_control_mode", get_gain_control_mode},
+	{"rf_port_select_available", get_rf_port_select_available},
+	{"rf_bandwidth", get_rf_bandwidth},
+	{"rf_dc_offset_tracking_en", get_rf_dc_offset_tracking_en},
+	{"sampling_frequency_available", get_sampling_frequency_available},
+	{"quadrature_tracking_en", get_quadrature_tracking_en},
+	{"sampling_frequency", get_sampling_frequency},
+	{"gain_control_mode_available", get_gain_control_mode_available},
+	{"filter_fir_en", get_filter_fir_en},
+	{"rf_bandwidth_available", get_rf_bandwidth_available},
+	{"bb_dc_offset_tracking_en", get_bb_dc_offset_tracking_en},
+};
+
+static struct attrtibute_map voltage0_output_map[] = {
 	{"rf_port_select", get_rf_port_select},
 	{"hardwaregain", get_hardwaregain},
 	{"rssi", get_rssi},
 	{"hardwaregain_available", get_hardwaregain_available},
+	{"sampling_frequency_available", get_sampling_frequency_available},
+	{"rf_port_select_available", get_rf_port_select_available},
+	{"filter_fir_en", get_filter_fir_en},
+	{"sampling_frequency", get_sampling_frequency},
+	{"rf_bandwidth_available", get_rf_bandwidth_available},
+	{"rf_bandwidth", get_rf_bandwidth},
+};
+
+static struct attrtibute_map voltage1_output_map[] = {
+	{"hardwaregain", get_hardwaregain},
+	{"rf_port_select", get_rf_port_select},
+	{"hardwaregain_available", get_hardwaregain_available},
+	{"rssi", get_rssi},
 	{"sampling_frequency_available", get_sampling_frequency_available},
 	{"rf_port_select_available", get_rf_port_select_available},
 	{"filter_fir_en", get_filter_fir_en},
@@ -887,15 +918,21 @@ static ssize_t ch_read_attr(const char *device, const char *channel,
 						strequal(channel, "voltage0") ? 0 : 1,
 						ch_out
 					};
-			attribute_id = get_attribute_id(attr, ch_in_read_attrtibute_map, ARRAY_SIZE(ch_in_read_attrtibute_map));
+			attribute_id = get_attribute_id(attr, voltage0_input_read_map, ARRAY_SIZE(voltage0_input_read_map));
 			if(attribute_id >= 0) {
-				return ch_in_read_attrtibute_map[attribute_id].exec(buf, len, &channel_info);
+				return voltage0_input_read_map[attribute_id].exec(buf, len, &channel_info);
 			}
 			if(strequal(attr, "")) {
 				if(ch_out)
-					return read_all_attr(buf, len, &channel_info, ch_out_read_attrtibute_map, ARRAY_SIZE(ch_out_read_attrtibute_map));
+					if(channel_info.ch_num == 0)
+						return read_all_attr(buf, len, &channel_info, voltage0_output_map, ARRAY_SIZE(voltage0_output_map));
+					else
+						return read_all_attr(buf, len, &channel_info, voltage1_output_map, ARRAY_SIZE(voltage1_output_map));
 				else
-					return read_all_attr(buf, len, &channel_info, ch_in_read_attrtibute_map, ARRAY_SIZE(ch_in_read_attrtibute_map));
+					if(channel_info.ch_num == 0)
+						return read_all_attr(buf, len, &channel_info, voltage0_input_read_map, ARRAY_SIZE(voltage0_input_read_map));
+					else
+						return read_all_attr(buf, len, &channel_info, voltage1_input_read_map, ARRAY_SIZE(voltage1_input_read_map));
 			}
 		}
 		else if(strequal(channel, "altvoltage0") || strequal(channel, "altvoltage1")) {
@@ -914,10 +951,19 @@ static ssize_t ch_read_attr(const char *device, const char *channel,
 					return read_all_attr(buf, len, &channel_info, altvoltage1_read_attrtibute_map, ARRAY_SIZE(altvoltage1_read_attrtibute_map));
 			}
 		}
+
 		else if(strequal(channel, "temp0")) {
 			if(strequal(attr, "input")) {
 				ad9361_get_temperature(ad9361_phy, &temp);
 					return (ssize_t) snprintf(buf, len, "%d", (int)temp);
+			}
+		}
+		else if(strequal(channel, "out")) {
+			if(strequal(attr, "voltage_filter_fir_en")) {
+				uint8_t en_dis_tx, en_dis_rx;
+				ad9361_get_tx_fir_en_dis (ad9361_phy, &en_dis_tx);
+				ad9361_get_rx_fir_en_dis (ad9361_phy, &en_dis_rx);
+				return (ssize_t) snprintf(buf, len, "%d", en_dis_rx && en_dis_tx);
 			}
 		}
 	}
@@ -1307,6 +1353,14 @@ static ssize_t ch_write_attr(const char *device, const char *channel,
 				return write_all_attr((char*)buf, len, &channel_info, altvoltage1_write_attrtibute_map, ARRAY_SIZE(altvoltage1_write_attrtibute_map));
 		}
 		return -ENOENT;
+	}
+	else if(strequal(channel, "out")) {
+		if(strequal(attr, "voltage_filter_fir_en")) {
+			int8_t en_dis = read_value(buf) ? 1 : 0;
+			ad9361_set_tx_fir_en_dis (ad9361_phy, en_dis);
+			ad9361_set_rx_fir_en_dis (ad9361_phy, en_dis);
+			return len;
+		}
 	}
 	return -ENOENT;
 }
