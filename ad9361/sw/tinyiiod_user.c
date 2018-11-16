@@ -760,7 +760,7 @@ ssize_t get_hardwaregain(char *buf, size_t len, const struct channel_info *chann
 
 }
 
-static struct attrtibute_map voltage0_input_read_map[] = {
+static struct attrtibute_map voltage_input_read_map[] = {
 	{"hardwaregain_available", get_hardwaregain_available},
 	{"hardwaregain", get_hardwaregain},
 	{"rssi", get_rssi},
@@ -778,42 +778,11 @@ static struct attrtibute_map voltage0_input_read_map[] = {
 	{"bb_dc_offset_tracking_en", get_bb_dc_offset_tracking_en},
 };
 
-static struct attrtibute_map voltage1_input_read_map[] = {
-	{"rssi", get_rssi},
-	{"rf_port_select", get_rf_port_select},
-	{"hardwaregain", get_hardwaregain},
-	{"hardwaregain_available", get_hardwaregain_available},
-	{"gain_control_mode", get_gain_control_mode},
-	{"rf_port_select_available", get_rf_port_select_available},
-	{"rf_bandwidth", get_rf_bandwidth},
-	{"rf_dc_offset_tracking_en", get_rf_dc_offset_tracking_en},
-	{"sampling_frequency_available", get_sampling_frequency_available},
-	{"quadrature_tracking_en", get_quadrature_tracking_en},
-	{"sampling_frequency", get_sampling_frequency},
-	{"gain_control_mode_available", get_gain_control_mode_available},
-	{"filter_fir_en", get_filter_fir_en},
-	{"rf_bandwidth_available", get_rf_bandwidth_available},
-	{"bb_dc_offset_tracking_en", get_bb_dc_offset_tracking_en},
-};
-
-static struct attrtibute_map voltage0_output_map[] = {
+static struct attrtibute_map voltage_output_map[] = {
 	{"rf_port_select", get_rf_port_select},
 	{"hardwaregain", get_hardwaregain},
 	{"rssi", get_rssi},
 	{"hardwaregain_available", get_hardwaregain_available},
-	{"sampling_frequency_available", get_sampling_frequency_available},
-	{"rf_port_select_available", get_rf_port_select_available},
-	{"filter_fir_en", get_filter_fir_en},
-	{"sampling_frequency", get_sampling_frequency},
-	{"rf_bandwidth_available", get_rf_bandwidth_available},
-	{"rf_bandwidth", get_rf_bandwidth},
-};
-
-static struct attrtibute_map voltage1_output_map[] = {
-	{"hardwaregain", get_hardwaregain},
-	{"rf_port_select", get_rf_port_select},
-	{"hardwaregain_available", get_hardwaregain_available},
-	{"rssi", get_rssi},
 	{"sampling_frequency_available", get_sampling_frequency_available},
 	{"rf_port_select_available", get_rf_port_select_available},
 	{"filter_fir_en", get_filter_fir_en},
@@ -850,13 +819,11 @@ ssize_t get_powerdown(char *buf, size_t len, const struct channel_info *channel)
 }
 
 ssize_t get_fastlock_load(char *buf, size_t len, const struct channel_info *channel) {
-
 	return -ENODEV;
 }
 
 ssize_t get_fastlock_store(char *buf, size_t len, const struct channel_info *channel) {
 	return -ENODEV;
-
 }
 
 ssize_t get_frequency(char *buf, size_t len, const struct channel_info *channel) {
@@ -877,7 +844,7 @@ ssize_t get_fastlock_recall(char *buf, size_t len, const struct channel_info *ch
 	return sprintf(buf, "%d", ad9361_phy->fastlock.current_profile[channel->ch_num]);
 }
 
-static struct attrtibute_map altvoltage0_read_attrtibute_map[] = {
+static struct attrtibute_map altvoltage_read_attrtibute_map[] = {
 	{"frequency_available", get_frequency_available},
 	{"fastlock_save", get_fastlock_save},
 	{"powerdown", get_powerdown},
@@ -886,17 +853,6 @@ static struct attrtibute_map altvoltage0_read_attrtibute_map[] = {
 	{"frequency", get_frequency},
 	{"external", get_external},
 	{"fastlock_recall", get_fastlock_recall},
-};
-
-static struct attrtibute_map altvoltage1_read_attrtibute_map[] = {
-	{"external", get_external},
-	{"frequency", get_frequency},
-	{"fastlock_store", get_fastlock_store},
-	{"fastlock_recall", get_fastlock_recall},
-	{"powerdown", get_powerdown},
-	{"fastlock_save", get_fastlock_save},
-	{"frequency_available", get_frequency_available},
-	{"fastlock_load", get_fastlock_load},
 };
 
 ssize_t get_dds_calibscale(char *buf, size_t len, const struct channel_info *channel) {
@@ -921,22 +877,13 @@ ssize_t get_dds_calibphase(char *buf, size_t len, const struct channel_info *cha
 	return snprintf(buf, len, "%ld.%.6ld", val, val2);
 }
 
-ssize_t get_dds_sampling_frequency_available(char *buf, size_t len, const struct channel_info *channel) {
-	uint32_t sampling_freq_hz;
-	ad9361_get_rx_sampling_freq (ad9361_phy, &sampling_freq_hz);
-	return (ssize_t) snprintf(buf, len, "[%lu %lu %lu]", (sampling_freq_hz / 8), (sampling_freq_hz - (sampling_freq_hz / 8)), sampling_freq_hz);
-}
-
 ssize_t get_dds_sampling_frequency(char *buf, size_t len, const struct channel_info *channel) {
-	uint32_t freq;
-	dds_get_frequency(ad9361_phy, channel->ch_num, &freq);
-	return snprintf(buf, len, "%lu", freq);
+	return -ENODEV;
 }
 
 static struct attrtibute_map dds_voltage0_read_attrtibute_map[] = {
-	{"calibscale", get_dds_calibscale},
 	{"calibphase", get_dds_calibphase},
-	{"sampling_frequency_available", get_dds_sampling_frequency_available},
+	{"calibscale", get_dds_calibscale},
 	{"sampling_frequency", get_dds_sampling_frequency},
 };
 
@@ -960,9 +907,7 @@ ssize_t get_dds_altvoltage_raw(char *buf, size_t len, const struct channel_info 
 	return -ENODEV;
 }
 ssize_t get_dds_altvoltage_sampling_frequency(char *buf, size_t len, const struct channel_info *channel) {
-	uint32_t freq;
-	dds_get_frequency(ad9361_phy, channel->ch_num, &freq);
-	return snprintf(buf, len, "%ld", freq);
+	return -ENODEV;
 }
 
 static struct attrtibute_map dds_altvoltage0_read_attrtibute_map[] = {
@@ -992,21 +937,16 @@ static ssize_t ch_read_attr(const char *device, const char *channel,
 						strequal(channel, "voltage0") ? 0 : 1,
 						ch_out
 					};
-			attribute_id = get_attribute_id(attr, voltage0_input_read_map, ARRAY_SIZE(voltage0_input_read_map));
+			attribute_id = get_attribute_id(attr, voltage_input_read_map, ARRAY_SIZE(voltage_input_read_map));
 			if(attribute_id >= 0) {
-				return voltage0_input_read_map[attribute_id].exec(buf, len, &channel_info);
+				return voltage_input_read_map[attribute_id].exec(buf, len, &channel_info);
 			}
 			if(strequal(attr, "")) {
 				if(ch_out)
-					if(channel_info.ch_num == 0)
-						return read_all_attr(buf, len, &channel_info, voltage0_output_map, ARRAY_SIZE(voltage0_output_map));
-					else
-						return read_all_attr(buf, len, &channel_info, voltage1_output_map, ARRAY_SIZE(voltage1_output_map));
+					return read_all_attr(buf, len, &channel_info, voltage_output_map, ARRAY_SIZE(voltage_output_map));
+
 				else
-					if(channel_info.ch_num == 0)
-						return read_all_attr(buf, len, &channel_info, voltage0_input_read_map, ARRAY_SIZE(voltage0_input_read_map));
-					else
-						return read_all_attr(buf, len, &channel_info, voltage1_input_read_map, ARRAY_SIZE(voltage1_input_read_map));
+					return read_all_attr(buf, len, &channel_info, voltage_input_read_map, ARRAY_SIZE(voltage_input_read_map));
 			}
 		}
 		else if(strequal(channel, "altvoltage0") || strequal(channel, "altvoltage1")) {
@@ -1014,15 +954,12 @@ static ssize_t ch_read_attr(const char *device, const char *channel,
 					strequal(channel, "altvoltage0") ? 0 : 1,
 					ch_out
 				};
-			attribute_id = get_attribute_id(attr, altvoltage0_read_attrtibute_map, ARRAY_SIZE(altvoltage0_read_attrtibute_map));
+			attribute_id = get_attribute_id(attr, altvoltage_read_attrtibute_map, ARRAY_SIZE(altvoltage_read_attrtibute_map));
 			if(attribute_id >= 0) {
-				return altvoltage0_read_attrtibute_map[attribute_id].exec(buf, len, &channel_info);
+				return altvoltage_read_attrtibute_map[attribute_id].exec(buf, len, &channel_info);
 			}
 			if(strequal(attr, "")) {
-				if(channel_info.ch_num == 0)
-					return read_all_attr(buf, len, &channel_info, altvoltage0_read_attrtibute_map, ARRAY_SIZE(altvoltage0_read_attrtibute_map));
-				else
-					return read_all_attr(buf, len, &channel_info, altvoltage1_read_attrtibute_map, ARRAY_SIZE(altvoltage1_read_attrtibute_map));
+				return read_all_attr(buf, len, &channel_info, altvoltage_read_attrtibute_map, ARRAY_SIZE(altvoltage_read_attrtibute_map));
 			}
 		}
 
@@ -1387,7 +1324,7 @@ ssize_t set_fastlock_recall(char *buf, size_t len, const struct channel_info *ch
 	return len;
 }
 
-static struct attrtibute_map altvoltage0_write_attrtibute_map[] = {
+static struct attrtibute_map altvoltage_write_attrtibute_map[] = {
 	{"frequency_available", set_frequency_available},
 	{"fastlock_save", set_fastlock_save},
 	{"powerdown", set_powerdown},
@@ -1396,17 +1333,6 @@ static struct attrtibute_map altvoltage0_write_attrtibute_map[] = {
 	{"frequency", set_frequency},
 	{"external", set_external},
 	{"fastlock_recall", set_fastlock_recall},
-};
-
-static struct attrtibute_map altvoltage1_write_attrtibute_map[] = {
-	{"external", set_external},
-	{"frequency", set_frequency},
-	{"fastlock_store", set_fastlock_store},
-	{"fastlock_recall", set_fastlock_recall},
-	{"powerdown", set_powerdown},
-	{"fastlock_save", set_fastlock_save},
-	{"frequency_available", set_frequency_available},
-	{"fastlock_load", set_fastlock_load},
 };
 
 ssize_t set_dds_calibscale(char *buf, size_t len, const struct channel_info *channel) {
@@ -1425,49 +1351,39 @@ ssize_t set_dds_calibphase(char *buf, size_t len, const struct channel_info *cha
 	return len;
 }
 
-ssize_t set_dds_sampling_frequency_available(char *buf, size_t len, const struct channel_info *channel) {
-	return -ENODEV;
-}
-
 ssize_t set_dds_sampling_frequency(char *buf, size_t len, const struct channel_info *channel) {
-	uint32_t freq = read_ul_value(buf);
-	dds_set_frequency(ad9361_phy, channel->ch_num, freq);
 	return -ENODEV;
 }
 
 static struct attrtibute_map dds_voltage0_write_attrtibute_map[] = {
-	{"calibscale", set_dds_calibscale},
 	{"calibphase", set_dds_calibphase},
-	{"sampling_frequency_available", set_dds_sampling_frequency_available},
+	{"calibscale", set_dds_calibscale},
 	{"sampling_frequency", set_dds_sampling_frequency},
 };
 
 ssize_t set_dds_altvoltage_phase(char *buf, size_t len, const struct channel_info *channel) {
-//	uint32_t phase;
-//	dds_get_phase(ad9361_phy, channel->ch_num, &phase);
-//	return snprintf(buf, len, "%lu", phase);
-	return -ENODEV;
+	uint32_t phase = read_ul_value(buf);
+	dds_set_phase(ad9361_phy, channel->ch_num, phase);
+	return len;
 }
-ssize_t set_dds_altvoltage_scale(char *buf, size_t len, const struct channel_info *channel) {
-//	int32_t scale;
-//	dds_get_scale(ad9361_phy, channel->ch_num, &scale);
-//	return snprintf(buf, len, "%ld", scale);
-	return -ENODEV;
-}
-ssize_t set_dds_altvoltage_frequency(char *buf, size_t len, const struct channel_info *channel) {
-//	uint32_t freq;
-//	dds_get_frequency(ad9361_phy, channel->ch_num, &freq);
-//	return snprintf(buf, len, "%ld", freq);
-	return -ENODEV;
-}
-ssize_t set_dds_altvoltage_raw(char *buf, size_t len, const struct channel_info *channel) {
 
+ssize_t set_dds_altvoltage_scale(char *buf, size_t len, const struct channel_info *channel) {
+	int32_t scale = read_value(buf);
+	dds_set_scale(ad9361_phy, channel->ch_num, scale);
+	return len;
+}
+
+ssize_t set_dds_altvoltage_frequency(char *buf, size_t len, const struct channel_info *channel) {
+	uint32_t freq = read_ul_value(buf);
+	dds_set_frequency(ad9361_phy, channel->ch_num, freq);
+	return len;
+}
+
+ssize_t set_dds_altvoltage_raw(char *buf, size_t len, const struct channel_info *channel) {
 	return -ENODEV;
 }
+
 ssize_t set_dds_altvoltage_sampling_frequency(char *buf, size_t len, const struct channel_info *channel) {
-//	uint32_t freq;
-//	dds_get_frequency(ad9361_phy, channel->ch_num, &freq);
-//	return snprintf(buf, len, "%ld", freq);
 	return -ENODEV;
 }
 
@@ -1516,15 +1432,12 @@ static ssize_t ch_write_attr(const char *device, const char *channel,
 					strequal(channel, "altvoltage0") ? 0 : 1,
 					ch_out
 				};
-			int16_t attribute_id = get_attribute_id(attr, altvoltage0_write_attrtibute_map, ARRAY_SIZE(altvoltage0_write_attrtibute_map));
+			int16_t attribute_id = get_attribute_id(attr, altvoltage_write_attrtibute_map, ARRAY_SIZE(altvoltage_write_attrtibute_map));
 			if(attribute_id >= 0) {
-				return altvoltage0_write_attrtibute_map[attribute_id].exec((char*)buf, len, &channel_info);
+				return altvoltage_write_attrtibute_map[attribute_id].exec((char*)buf, len, &channel_info);
 			}
 			if(strequal(attr, "")) {
-				if(channel_info.ch_num == 0)
-					return write_all_attr((char*)buf, len, &channel_info, altvoltage0_write_attrtibute_map, ARRAY_SIZE(altvoltage0_write_attrtibute_map));
-				else
-					return write_all_attr((char*)buf, len, &channel_info, altvoltage1_write_attrtibute_map, ARRAY_SIZE(altvoltage1_write_attrtibute_map));
+				return write_all_attr((char*)buf, len, &channel_info, altvoltage_write_attrtibute_map, ARRAY_SIZE(altvoltage_write_attrtibute_map));
 			}
 			return -ENOENT;
 		}
