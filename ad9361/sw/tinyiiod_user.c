@@ -174,6 +174,17 @@ static unsigned long read_ul_value(const char *str)
 		return value;
 }
 
+int get_channel(char *ch, char *ch_name) {
+	char *p = strstr(ch, ch_name);
+	if(p == NULL) {
+		return -ENODEV;
+	}
+	else {
+		p += strlen(ch_name);
+		return read_value(p);
+	}
+}
+
 /***********************************************************************************************************************
 * Function Name: write_reg
 * Description  : None
@@ -881,7 +892,7 @@ ssize_t get_dds_sampling_frequency(char *buf, size_t len, const struct channel_i
 	return -ENODEV;
 }
 
-static struct attrtibute_map dds_voltage0_read_attrtibute_map[] = {
+static struct attrtibute_map dds_voltage_read_attrtibute_map[] = {
 	{"calibphase", get_dds_calibphase},
 	{"calibscale", get_dds_calibscale},
 	{"sampling_frequency", get_dds_sampling_frequency},
@@ -910,14 +921,13 @@ ssize_t get_dds_altvoltage_sampling_frequency(char *buf, size_t len, const struc
 	return -ENODEV;
 }
 
-static struct attrtibute_map dds_altvoltage0_read_attrtibute_map[] = {
+static struct attrtibute_map dds_altvoltage_read_attrtibute_map[] = {
 	{"phase", get_dds_altvoltage_phase},
 	{"scale", get_dds_altvoltage_scale},
 	{"frequency", get_dds_altvoltage_frequency},
 	{"raw", get_dds_altvoltage_raw},
 	{"sampling_frequency", get_dds_altvoltage_sampling_frequency},
 };
-
 /***********************************************************************************************************************
 * Function Name: ch_read_attr
 * Description  : None
@@ -932,9 +942,9 @@ static ssize_t ch_read_attr(const char *device, const char *channel,
 	if (!dev_is_ad9361_module(device))
 		return -ENODEV;
 	if(strequal(device, "ad9361-phy")) { // global attributes
-		if(strequal(channel, "voltage0") || strequal(channel, "voltage1")) {
+		if(channel == strstr(channel, "voltage")) {
 			const struct channel_info channel_info = {
-						strequal(channel, "voltage0") ? 0 : 1,
+						get_channel((char*)channel, "voltage"),
 						ch_out
 					};
 			attribute_id = get_attribute_id(attr, voltage_input_read_map, ARRAY_SIZE(voltage_input_read_map));
@@ -949,9 +959,9 @@ static ssize_t ch_read_attr(const char *device, const char *channel,
 					return read_all_attr(buf, len, &channel_info, voltage_input_read_map, ARRAY_SIZE(voltage_input_read_map));
 			}
 		}
-		else if(strequal(channel, "altvoltage0") || strequal(channel, "altvoltage1")) {
+		else if(NULL != strstr(channel, "altvoltage")) {
 			const struct channel_info channel_info = {
-					strequal(channel, "altvoltage0") ? 0 : 1,
+					get_channel((char*)channel, "altvoltage"),
 					ch_out
 				};
 			attribute_id = get_attribute_id(attr, altvoltage_read_attrtibute_map, ARRAY_SIZE(altvoltage_read_attrtibute_map));
@@ -979,30 +989,30 @@ static ssize_t ch_read_attr(const char *device, const char *channel,
 		}
 	}
 	else if(strequal(device, "cf-ad9361-dds-core-lpc")) {
-		if(strequal(channel, "voltage0")) {
-			attribute_id = get_attribute_id(attr, dds_voltage0_read_attrtibute_map, ARRAY_SIZE(dds_voltage0_read_attrtibute_map));
+		if(channel == strstr(channel, "voltage")) {
+			attribute_id = get_attribute_id(attr, dds_voltage_read_attrtibute_map, ARRAY_SIZE(dds_voltage_read_attrtibute_map));
 			const struct channel_info channel_info = {
-				strequal(channel, "voltage0") ? 0 : 1,
+				get_channel((char*)channel, "voltage"),
 				ch_out
 			};
 			if(attribute_id >= 0) {
-				return dds_voltage0_read_attrtibute_map[attribute_id].exec(buf, len, &channel_info);
+				return dds_voltage_read_attrtibute_map[attribute_id].exec(buf, len, &channel_info);
 			}
 			if(strequal(attr, "")) {
-				return read_all_attr(buf, len, &channel_info, dds_voltage0_read_attrtibute_map, ARRAY_SIZE(dds_voltage0_read_attrtibute_map));
+				return read_all_attr(buf, len, &channel_info, dds_voltage_read_attrtibute_map, ARRAY_SIZE(dds_voltage_read_attrtibute_map));
 			}
 		}
-		else if(strequal(channel, "altvoltage0")) {
-			attribute_id = get_attribute_id(attr, dds_altvoltage0_read_attrtibute_map, ARRAY_SIZE(dds_altvoltage0_read_attrtibute_map));
+		else if(NULL != strstr(channel, "altvoltage")) {
+			attribute_id = get_attribute_id(attr, dds_altvoltage_read_attrtibute_map, ARRAY_SIZE(dds_altvoltage_read_attrtibute_map));
 			const struct channel_info channel_info = {
-				strequal(channel, "voltage0") ? 0 : 1,
+				get_channel((char*)channel, "altvoltage"),
 				ch_out
 			};
 			if(attribute_id >= 0) {
-				return dds_altvoltage0_read_attrtibute_map[attribute_id].exec(buf, len, &channel_info);
+				return dds_altvoltage_read_attrtibute_map[attribute_id].exec(buf, len, &channel_info);
 			}
 			if(strequal(attr, "")) {
-				return read_all_attr(buf, len, &channel_info, dds_altvoltage0_read_attrtibute_map, ARRAY_SIZE(dds_altvoltage0_read_attrtibute_map));
+				return read_all_attr(buf, len, &channel_info, dds_altvoltage_read_attrtibute_map, ARRAY_SIZE(dds_altvoltage_read_attrtibute_map));
 			}
 		}
 		return -ENOENT;
@@ -1355,7 +1365,7 @@ ssize_t set_dds_sampling_frequency(char *buf, size_t len, const struct channel_i
 	return -ENODEV;
 }
 
-static struct attrtibute_map dds_voltage0_write_attrtibute_map[] = {
+static struct attrtibute_map dds_voltage_write_attrtibute_map[] = {
 	{"calibphase", set_dds_calibphase},
 	{"calibscale", set_dds_calibscale},
 	{"sampling_frequency", set_dds_sampling_frequency},
@@ -1387,7 +1397,7 @@ ssize_t set_dds_altvoltage_sampling_frequency(char *buf, size_t len, const struc
 	return -ENODEV;
 }
 
-static struct attrtibute_map dds_altvoltage0_write_attrtibute_map[] = {
+static struct attrtibute_map dds_altvoltage_write_attrtibute_map[] = {
 	{"phase", set_dds_altvoltage_phase},
 	{"scale", set_dds_altvoltage_scale},
 	{"frequency", set_dds_altvoltage_frequency},
@@ -1409,9 +1419,9 @@ static ssize_t ch_write_attr(const char *device, const char *channel,
 	if (!dev_is_ad9361_module(device))
 		return -ENODEV;
 	if(strequal(device, "ad9361-phy")) {
-		if(strequal(channel, "voltage0") || strequal(channel, "voltage1")) {
+		if(channel == strstr(channel, "voltage")) {
 			const struct channel_info channel_info = {
-				strequal(channel, "voltage0") ? 0 : 1,
+				get_channel((char*)channel, "voltage"),
 				ch_out
 			};
 			attribute_id = get_attribute_id(attr, ch_in_write_attrtibute_map, ARRAY_SIZE(ch_in_write_attrtibute_map));
@@ -1427,9 +1437,9 @@ static ssize_t ch_write_attr(const char *device, const char *channel,
 			}
 			return -ENOENT;
 		}
-		else if(strequal(channel, "altvoltage0") || strequal(channel, "altvoltage1")) {
+		else if(NULL != strstr(channel, "altvoltage")) {
 			const struct channel_info channel_info = {
-					strequal(channel, "altvoltage0") ? 0 : 1,
+					get_channel((char*)channel, "altvoltage"),
 					ch_out
 				};
 			int16_t attribute_id = get_attribute_id(attr, altvoltage_write_attrtibute_map, ARRAY_SIZE(altvoltage_write_attrtibute_map));
@@ -1451,30 +1461,30 @@ static ssize_t ch_write_attr(const char *device, const char *channel,
 		}
 	}
 	else if(strequal(device, "cf-ad9361-dds-core-lpc")) {
-		if(strequal(channel, "voltage0")) {
-			attribute_id = get_attribute_id(attr, dds_voltage0_write_attrtibute_map, ARRAY_SIZE(dds_voltage0_write_attrtibute_map));
+		if(channel == strstr(channel, "voltage")) {
+			attribute_id = get_attribute_id(attr, dds_voltage_write_attrtibute_map, ARRAY_SIZE(dds_voltage_write_attrtibute_map));
 			const struct channel_info channel_info = {
-				strequal(channel, "voltage0") ? 0 : 1,
+				get_channel((char*)channel, "voltage"),
 				ch_out
 			};
 			if(attribute_id >= 0) {
-				return dds_voltage0_write_attrtibute_map[attribute_id].exec((char*)buf, len, &channel_info);
+				return dds_voltage_write_attrtibute_map[attribute_id].exec((char*)buf, len, &channel_info);
 			}
 			if(strequal(attr, "")) {
-				return read_all_attr((char*)buf, len, &channel_info, dds_voltage0_write_attrtibute_map, ARRAY_SIZE(dds_voltage0_write_attrtibute_map));
+				return read_all_attr((char*)buf, len, &channel_info, dds_voltage_write_attrtibute_map, ARRAY_SIZE(dds_voltage_write_attrtibute_map));
 			}
 		}
-		else if(strequal(channel, "altvoltage0")) {
-			attribute_id = get_attribute_id(attr, dds_altvoltage0_write_attrtibute_map, ARRAY_SIZE(dds_altvoltage0_write_attrtibute_map));
+		else if(NULL != strstr(channel, "altvoltage")) {
+			attribute_id = get_attribute_id(attr, dds_altvoltage_write_attrtibute_map, ARRAY_SIZE(dds_altvoltage_write_attrtibute_map));
 			const struct channel_info channel_info = {
-				strequal(channel, "voltage0") ? 0 : 1,
+				get_channel((char*)channel, "altvoltage"),
 				ch_out
 			};
 			if(attribute_id >= 0) {
-				return dds_altvoltage0_write_attrtibute_map[attribute_id].exec((char*)buf, len, &channel_info);
+				return dds_altvoltage_write_attrtibute_map[attribute_id].exec((char*)buf, len, &channel_info);
 			}
 			if(strequal(attr, "")) {
-				return read_all_attr((char*)buf, len, &channel_info, dds_altvoltage0_write_attrtibute_map, ARRAY_SIZE(dds_altvoltage0_write_attrtibute_map));
+				return read_all_attr((char*)buf, len, &channel_info, dds_altvoltage_write_attrtibute_map, ARRAY_SIZE(dds_altvoltage_write_attrtibute_map));
 			}
 		}
 		return -ENOENT;
