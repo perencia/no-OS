@@ -1438,11 +1438,12 @@ ssize_t set_dds_altvoltage_phase(char *buf, size_t len, const struct channel_inf
 	dds_set_phase(ad9361_phy, channel->ch_num, phase);
 	return len;
 }
-
+// todo uncommenting this function will brake the dds sine
 ssize_t set_dds_altvoltage_scale(char *buf, size_t len, const struct channel_info *channel) {
-	int32_t scale = read_value(buf);
-	dds_set_scale(ad9361_phy, channel->ch_num, scale);
-	return len;
+	//	int32_t scale = read_value(buf);
+	//	dds_set_scale(ad9361_phy, channel->ch_num, scale);
+	//	return len;
+		return -ENODEV;
 }
 
 ssize_t set_dds_altvoltage_frequency(char *buf, size_t len, const struct channel_info *channel) {
