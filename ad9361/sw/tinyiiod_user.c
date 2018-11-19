@@ -31,6 +31,7 @@
 #include "ad9361_api.h"
 #include "serial.h"
 #include "xil_cache.h"
+#include "platform.h"
 
 static unsigned int addr_to_read;
 static uint32_t request_mask;
@@ -185,6 +186,8 @@ int get_channel(char *ch, char *ch_name) {
 	}
 }
 
+extern int32_t ad9361_spi_read(struct spi_device *spi, uint32_t reg);
+extern int32_t ad9361_spi_write(struct spi_device *spi, uint32_t reg, uint32_t val);
 /***********************************************************************************************************************
 * Function Name: write_reg
 * Description  : None
@@ -193,7 +196,7 @@ int get_channel(char *ch, char *ch_name) {
 ***********************************************************************************************************************/
 static int write_reg(unsigned int addr, uint32_t value)
 {
-	return -EPERM;
+	return ad9361_spi_write(ad9361_phy->spi, addr, value);
 }
 
 /***********************************************************************************************************************
@@ -202,8 +205,11 @@ static int write_reg(unsigned int addr, uint32_t value)
 * Arguments    : None
 * Return Value : None
 ***********************************************************************************************************************/
-static int read_reg(unsigned int addr, uint32_t *value)
+static int read_reg(unsigned int addr, int32_t *value)
 {
+	*value = ad9361_spi_read(ad9361_phy->spi, addr);
+	if(*value < 0)
+		return *value;
 	return 0;
 }
 
@@ -928,6 +934,47 @@ static struct attrtibute_map dds_altvoltage_read_attrtibute_map[] = {
 	{"raw", get_dds_altvoltage_raw},
 	{"sampling_frequency", get_dds_altvoltage_sampling_frequency},
 };
+
+ssize_t get_cf_calibphase(char *buf, size_t len, const struct channel_info *channel) {
+	int32_t val, val2;
+	ssize_t ret = adc_get_calib_phase(ad9361_phy, channel->ch_num, &val, &val2);
+	if(ret < 0)
+		return ret;
+	return snprintf(buf, len, "%ld.%.6ld", val, val2);
+}
+
+ssize_t get_cf_calibbias(char *buf, size_t len, const struct channel_info *channel) {
+	int val;
+	unsigned int tmp = axiadc_read(ad9361_phy->adc_state, ADI_REG_CHAN_CNTRL_1(channel->ch_num));
+	val = (short)ADI_TO_DCFILT_OFFSET(tmp);
+	return snprintf(buf, len, "%d", val);
+}
+ssize_t get_cf_calibscale(char *buf, size_t len, const struct channel_info *channel) {
+	int32_t val, val2;
+	ssize_t ret = adc_get_calib_scale(ad9361_phy, channel->ch_num, &val, &val2);
+	int i = 0;
+	if(ret < 0)
+		return ret;
+	if(val2 < 0 && val >= 0) {
+		ret = (ssize_t) snprintf(buf, len, "-");
+		i++;
+	}
+	ret = i + (ssize_t) snprintf(&buf[i], len, "%ld.%.6ld", val, labs(val2));
+	return ret;
+}
+ssize_t get_cf_samples_pps(char *buf, size_t len, const struct channel_info *channel) {
+	return -ENODEV;
+}
+ssize_t get_cf_sampling_frequency(char *buf, size_t len, const struct channel_info *channel) {
+	return -ENODEV;
+}
+static struct attrtibute_map cf_voltage_read_attrtibute_map[] = {
+	{"calibphase", get_cf_calibphase},
+	{"calibbias", get_cf_calibbias},
+	{"calibscale", get_cf_calibscale},
+	{"samples_pps", get_cf_samples_pps},
+	{"sampling_frequency", get_cf_sampling_frequency},
+};
 /***********************************************************************************************************************
 * Function Name: ch_read_attr
 * Description  : None
@@ -1018,6 +1065,21 @@ static ssize_t ch_read_attr(const char *device, const char *channel,
 		return -ENOENT;
 	}
 	else if(strequal(device, "cf-ad9361-lpc")) {
+		if(channel == strstr(channel, "voltage")) {
+			attribute_id = get_attribute_id(attr, cf_voltage_read_attrtibute_map, ARRAY_SIZE(cf_voltage_read_attrtibute_map));
+			const struct channel_info channel_info = {
+				get_channel((char*)channel, "voltage"),
+				ch_out
+			};
+			if(attribute_id >= 0) {
+				return cf_voltage_read_attrtibute_map[attribute_id].exec((char*)buf, len, &channel_info);
+			}
+			if(strequal(attr, "")) {
+				return read_all_attr((char*)buf, len, &channel_info, cf_voltage_read_attrtibute_map, ARRAY_SIZE(cf_voltage_read_attrtibute_map));
+			}
+		}
+
+
 		return -ENOENT;
 	}
 	return -ENOENT;
@@ -1405,6 +1467,46 @@ static struct attrtibute_map dds_altvoltage_write_attrtibute_map[] = {
 	{"sampling_frequency", set_dds_altvoltage_sampling_frequency},
 };
 
+ssize_t set_cf_calibphase(char *buf, size_t len, const struct channel_info *channel) {
+	float calib = strtof(buf, NULL);
+	int32_t val = (int32_t)calib;
+	int32_t val2 = (int32_t)(calib* 1000000) % 1000000;
+	adc_set_calib_phase(ad9361_phy, channel->ch_num, val, val2);
+	return len;
+}
+
+ssize_t set_cf_calibbias(char *buf, size_t len, const struct channel_info *channel) {
+	int val = read_value(buf);
+	unsigned int tmp = axiadc_read(ad9361_phy->adc_state, ADI_REG_CHAN_CNTRL_1(channel->ch_num));
+	tmp &= ~ADI_DCFILT_OFFSET(~0);
+	tmp |= ADI_DCFILT_OFFSET((short)val);
+	axiadc_write(ad9361_phy->adc_state, ADI_REG_CHAN_CNTRL_1(channel->ch_num), tmp);
+	return len;
+}
+
+ssize_t set_cf_calibscale(char *buf, size_t len, const struct channel_info *channel) {
+	float calib= strtof(buf, NULL);
+	int32_t val = (int32_t)calib;
+	int32_t val2 = (int32_t)(calib* 1000000) % 1000000;
+	adc_set_calib_scale(ad9361_phy, channel->ch_num, val, val2);
+	return len;
+}
+
+ssize_t set_cf_samples_pps(char *buf, size_t len, const struct channel_info *channel) {
+	return -ENODEV;
+}
+
+ssize_t set_cf_sampling_frequency(char *buf, size_t len, const struct channel_info *channel) {
+	return -ENODEV;
+}
+
+static struct attrtibute_map cf_voltage_write_attrtibute_map[] = {
+	{"calibphase", set_cf_calibphase},
+	{"calibbias", set_cf_calibbias},
+	{"calibscale", set_cf_calibscale},
+	{"samples_pps", set_cf_samples_pps},
+	{"sampling_frequency", set_cf_sampling_frequency},
+};
 
 /***********************************************************************************************************************
 * Function Name: ch_write_attr
@@ -1490,6 +1592,20 @@ static ssize_t ch_write_attr(const char *device, const char *channel,
 		return -ENOENT;
 	}
 	else if(strequal(device, "cf-ad9361-lpc")) {
+		if(channel == strstr(channel, "voltage")) {
+			attribute_id = get_attribute_id(attr, cf_voltage_write_attrtibute_map, ARRAY_SIZE(cf_voltage_write_attrtibute_map));
+			const struct channel_info channel_info = {
+				get_channel((char*)channel, "voltage"),
+				ch_out
+			};
+			if(attribute_id >= 0) {
+				return cf_voltage_write_attrtibute_map[attribute_id].exec((char*)buf, len, &channel_info);
+			}
+			if(strequal(attr, "")) {
+				return read_all_attr((char*)buf, len, &channel_info, cf_voltage_write_attrtibute_map, ARRAY_SIZE(cf_voltage_write_attrtibute_map));
+			}
+		}
+
 		return -ENOENT;
 	}
 	return -ENOENT;
