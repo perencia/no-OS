@@ -1457,6 +1457,14 @@ ssize_t set_dds_altvoltage_frequency(char *buf, size_t len, const struct channel
 }
 
 ssize_t set_dds_altvoltage_raw(char *buf, size_t len, const struct channel_info *channel) {
+	uint32_t dds_mode = read_ul_value(buf);
+	if(dds_mode) { //DDS mode selected
+		dac_datasel(ad9361_phy, -1, DATA_SEL_DDS);
+	}
+	else {	//DMA mode selected
+		dac_datasel(ad9361_phy, -1, DATA_SEL_DMA);
+	}
+
 	return -ENODEV;
 }
 
@@ -1683,13 +1691,13 @@ static ssize_t read_dev(const char *device, char *buf, size_t bytes_count)
 			return -ENODEV;
 
 	if(adc_st.rx2tx2)
-		{
-			sampleSize = bytes_count / 8;
-		}
-		else
-		{
-			sampleSize = bytes_count / 4;
-		}
+	{
+		sampleSize = bytes_count / 8;
+	}
+	else
+	{
+		sampleSize = bytes_count / 4;
+	}
 
 	adc_capture(sampleSize, ADC_DDR_BASEADDR);
 	Xil_DCacheInvalidateRange(ADC_DDR_BASEADDR,	bytes_count);
