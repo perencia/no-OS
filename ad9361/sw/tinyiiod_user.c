@@ -909,20 +909,24 @@ ssize_t get_dds_altvoltage_phase(char *buf, size_t len, const struct channel_inf
 	dds_get_phase(ad9361_phy, channel->ch_num, &phase);
 	return snprintf(buf, len, "%lu", phase);
 }
+
 ssize_t get_dds_altvoltage_scale(char *buf, size_t len, const struct channel_info *channel) {
 	int32_t scale;
 	dds_get_scale(ad9361_phy, channel->ch_num, &scale);
-	return snprintf(buf, len, "%ld", scale);
+	return snprintf(buf, len, "%ld.%.6ld", (scale / 1000000), (scale % 1000000));
 }
+
 ssize_t get_dds_altvoltage_frequency(char *buf, size_t len, const struct channel_info *channel) {
 	uint32_t freq;
 	dds_get_frequency(ad9361_phy, channel->ch_num, &freq);
 	return snprintf(buf, len, "%ld", freq);
 }
+
 ssize_t get_dds_altvoltage_raw(char *buf, size_t len, const struct channel_info *channel) {
 
 	return -ENODEV;
 }
+
 ssize_t get_dds_altvoltage_sampling_frequency(char *buf, size_t len, const struct channel_info *channel) {
 	return -ENODEV;
 }
@@ -1438,12 +1442,12 @@ ssize_t set_dds_altvoltage_phase(char *buf, size_t len, const struct channel_inf
 	dds_set_phase(ad9361_phy, channel->ch_num, phase);
 	return len;
 }
-// todo uncommenting this function will brake the dds sine
+
 ssize_t set_dds_altvoltage_scale(char *buf, size_t len, const struct channel_info *channel) {
-	//	int32_t scale = read_value(buf);
-	//	dds_set_scale(ad9361_phy, channel->ch_num, scale);
-	//	return len;
-		return -ENODEV;
+	float fscale = strtof(buf, NULL);
+	int32_t scale = fscale * 1000000;
+	dds_set_scale(ad9361_phy, channel->ch_num, scale);
+	return len;
 }
 
 ssize_t set_dds_altvoltage_frequency(char *buf, size_t len, const struct channel_info *channel) {
