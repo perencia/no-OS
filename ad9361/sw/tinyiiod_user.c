@@ -888,10 +888,15 @@ ssize_t get_dds_calibscale(char *buf, size_t len, const struct channel_info *cha
 
 ssize_t get_dds_calibphase(char *buf, size_t len, const struct channel_info *channel) {
 	int32_t val, val2;
+	int i = 0;
 	ssize_t ret = dds_get_calib_phase(ad9361_phy, channel->ch_num, &val, &val2);
 	if(ret < 0)
 		return ret;
-	return snprintf(buf, len, "%ld.%.6ld", val, val2);
+	if(val2 < 0 && val >= 0) {
+		ret = (ssize_t) snprintf(buf, len, "-");
+		i++;
+	}
+	return i + snprintf(&buf[i], len, "%ld.%.6ld", val, labs(val2));
 }
 
 ssize_t get_dds_sampling_frequency(char *buf, size_t len, const struct channel_info *channel) {
@@ -941,10 +946,15 @@ static struct attrtibute_map dds_altvoltage_read_attrtibute_map[] = {
 
 ssize_t get_cf_calibphase(char *buf, size_t len, const struct channel_info *channel) {
 	int32_t val, val2;
+	int i = 0;
 	ssize_t ret = adc_get_calib_phase(ad9361_phy, channel->ch_num, &val, &val2);
 	if(ret < 0)
 		return ret;
-	return snprintf(buf, len, "%ld.%.6ld", val, val2);
+	if(val2 < 0 && val >= 0) {
+		ret = (ssize_t) snprintf(buf, len, "-");
+		i++;
+	}
+	return i + snprintf(&buf[i], len, "%ld.%.6ld", val, labs(val2));
 }
 
 ssize_t get_cf_calibbias(char *buf, size_t len, const struct channel_info *channel) {
@@ -1458,14 +1468,13 @@ ssize_t set_dds_altvoltage_frequency(char *buf, size_t len, const struct channel
 
 ssize_t set_dds_altvoltage_raw(char *buf, size_t len, const struct channel_info *channel) {
 	uint32_t dds_mode = read_ul_value(buf);
-	if(dds_mode) { //DDS mode selected
+	if(dds_mode) { 		//DDS mode selected
 		dac_datasel(ad9361_phy, -1, DATA_SEL_DDS);
 	}
-	else {	//DMA mode selected
+	else {				//DMA mode selected
 		dac_datasel(ad9361_phy, -1, DATA_SEL_DMA);
 	}
-
-	return -ENODEV;
+	return len;
 }
 
 ssize_t set_dds_altvoltage_sampling_frequency(char *buf, size_t len, const struct channel_info *channel) {
