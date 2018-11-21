@@ -245,8 +245,10 @@ int tinyiiod_do_writebuf(struct tinyiiod *iiod,
 void tinyiiod_do_readbuf(struct tinyiiod *iiod,
 		const char *device, size_t bytes_count)
 {
+	size_t bytes_cnt = bytes_count;
 	int ret;
-	char buf[256];
+	// increase buf to 0x1000 bytes, so that "adc_capture" is not called multiple times, before "bytes_count" bytes are sent
+	char buf[0x1000];
 	uint32_t mask;
 	bool print_mask = true;
 
@@ -256,8 +258,8 @@ void tinyiiod_do_readbuf(struct tinyiiod *iiod,
 		return;
 	}
 
-	while(bytes_count) {
-		size_t bytes = bytes_count > sizeof(buf) ? sizeof(buf) : bytes_count;
+	while(bytes_cnt) {
+		size_t bytes = bytes_cnt > sizeof(buf) ? sizeof(buf) : bytes_cnt;
 		// read device
 		ret = (int) iiod->ops->read_device(device, buf, bytes);
 		tinyiiod_write_value(iiod, ret);
@@ -273,6 +275,6 @@ void tinyiiod_do_readbuf(struct tinyiiod *iiod,
 		}
 
 		tinyiiod_write(iiod, buf, (size_t) ret);
-		bytes_count -= (size_t) ret;
+		bytes_cnt -= (size_t) ret;
 	}
 }
