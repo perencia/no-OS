@@ -79,14 +79,16 @@ const uint16_t sine_lut[128] = {
 		0xCF0, 0xD4E, 0xDAD, 0xE0E, 0xE70, 0xED3, 0xF37, 0xF9B
 };
 const uint16_t sine_lut1[128] = {
-		0xaaa, 0xaaa, 0xaaa, 0x12C, 0x18F, 0x1F1, 0x252, 0x2B1,
-		0x30F, 0x36B, 0x3C5, 0x41C, 0x471, 0x4C3, 0x512, 0x55F,
-		0x5A7, 0x5ED, 0x62E, 0x66C, 0x6A6, 0x6DC, 0x70D, 0x73A,
-		0x763, 0x787, 0x7A7, 0x7C2, 0x7D8, 0x7E9, 0x7F5, 0x7FD,
-		0x7FF, 0x7FD, 0x7F5, 0x7E9, 0x7D8, 0x7C2, 0x7A7, 0x787,
-		0x763, 0x73A, 0x70D, 0x6DC, 0x6A6, 0x66C, 0x62E, 0x5ED,
-		0x5A7, 0x55F, 0x512, 0x4C3, 0x471, 0x41C, 0x3C5, 0x36B,
-		0x30F, 0x2B1, 0x252, 0x1F1, 0x18F, 0x12C, 0xC8,  0x64,
+		0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa,
+		0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa,
+		0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa,
+		0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa,
+		0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa,
+		0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa,
+		0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa,
+		0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa, 0xaaa,
+
+
 		0x000, 0xF9B, 0xF37, 0xED3, 0xE70, 0xE0E, 0xDAD, 0xD4E,
 		0xCF0, 0xC94, 0xC3A, 0xBE3, 0xB8E, 0xB3C, 0xAED, 0xAA0,
 		0xA58, 0xA12, 0x9D1, 0x993, 0x959, 0x923, 0x8F2, 0x8C5,
@@ -202,142 +204,122 @@ void dac_write_buffer(struct ad9361_rf_phy *phy, uint16_t *buf, uint32_t buff_si
 	uint8_t config_dma = 1;
 
 
-	uint32_t tx_count;
-		uint32_t index;
-		uint32_t index_i1;
-		uint32_t index_q1;
-		uint32_t index_i2;
-		uint32_t index_q2;
-		uint32_t index_mem;
-		uint32_t data_i1;
-		uint32_t data_q1;
-		uint32_t data_i2;
-		uint32_t data_q2;
-		uint32_t length;
-		uint32_t reg_ctrl_2;
+	uint32_t tx_count = buff_size;
+	uint32_t index;
+	uint32_t index_i1;
+	uint32_t index_q1;
+	uint32_t index_i2;
+	uint32_t index_q2;
+	uint32_t index_mem;
+	uint32_t data_i1;
+	uint32_t data_q1;
+	uint32_t data_i2;
+	uint32_t data_q2;
+	uint32_t length;
+	uint32_t reg_ctrl_2;
+	dac_write(phy, DAC_REG_RSTN, 0x0);
+	dac_write(phy, DAC_REG_RSTN, DAC_RSTN | DAC_MMCM_RSTN);
 
-		dac_write(phy, DAC_REG_RSTN, 0x0);
-		dac_write(phy, DAC_REG_RSTN, DAC_RSTN | DAC_MMCM_RSTN);
+	dds_st[phy->id_no].dac_clk = &phy->clks[TX_SAMPL_CLK]->rate;
+	dds_st[phy->id_no].rx2tx2 = phy->pdata->rx2tx2;
+	dac_read(phy, DAC_REG_CNTRL_2, &reg_ctrl_2);
+	if(dds_st[phy->id_no].rx2tx2)
+	{
+		dds_st[phy->id_no].num_buf_channels = 4;
+		if(phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE)
+			dac_write(phy, DAC_REG_RATECNTRL, DAC_RATE(3));
+		else
+			dac_write(phy, DAC_REG_RATECNTRL, DAC_RATE(1));
+		reg_ctrl_2 &= ~DAC_R1_MODE;
+	}
+	else
+	{
+		dds_st[phy->id_no].num_buf_channels = 2;
+		if(phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE)
+			dac_write(phy, DAC_REG_RATECNTRL, DAC_RATE(1));
+		else
+			dac_write(phy, DAC_REG_RATECNTRL, DAC_RATE(0));
+		reg_ctrl_2 |= DAC_R1_MODE;
+	}
+	dac_write(phy, DAC_REG_CNTRL_2, reg_ctrl_2);
 
-		dds_st[phy->id_no].dac_clk = &phy->clks[TX_SAMPL_CLK]->rate;
-		dds_st[phy->id_no].rx2tx2 = phy->pdata->rx2tx2;
-		dac_read(phy, DAC_REG_CNTRL_2, &reg_ctrl_2);
+	dac_read(phy, DAC_REG_VERSION, &dds_st[phy->id_no].pcore_version);
+
+	dac_stop(phy);
+	switch (data_sel) {
+	case DATA_SEL_DDS:
+		dds_default_setup(phy, DDS_CHAN_TX1_I_F1, 90000, 1000000, 250000);
+		dds_default_setup(phy, DDS_CHAN_TX1_I_F2, 90000, 1000000, 250000);
+		dds_default_setup(phy, DDS_CHAN_TX1_Q_F1, 0, 1000000, 250000);
+		dds_default_setup(phy, DDS_CHAN_TX1_Q_F2, 0, 1000000, 250000);
 		if(dds_st[phy->id_no].rx2tx2)
 		{
-			dds_st[phy->id_no].num_buf_channels = 4;
-			if(phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE)
-				dac_write(phy, DAC_REG_RATECNTRL, DAC_RATE(3));
-			else
-				dac_write(phy, DAC_REG_RATECNTRL, DAC_RATE(1));
-			reg_ctrl_2 &= ~DAC_R1_MODE;
+			dds_default_setup(phy, DDS_CHAN_TX2_I_F1, 90000, 1000000, 250000);
+			dds_default_setup(phy, DDS_CHAN_TX2_I_F2, 90000, 1000000, 250000);
+			dds_default_setup(phy, DDS_CHAN_TX2_Q_F1, 0, 1000000, 250000);
+			dds_default_setup(phy, DDS_CHAN_TX2_Q_F2, 0, 1000000, 250000);
 		}
-		else
+		dac_datasel(phy, -1, DATA_SEL_DDS);
+		break;
+	case DATA_SEL_DMA:
+		if(config_dma)
 		{
-			dds_st[phy->id_no].num_buf_channels = 2;
-			if(phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE)
-				dac_write(phy, DAC_REG_RATECNTRL, DAC_RATE(1));
-			else
-				dac_write(phy, DAC_REG_RATECNTRL, DAC_RATE(0));
-			reg_ctrl_2 |= DAC_R1_MODE;
-		}
-		dac_write(phy, DAC_REG_CNTRL_2, reg_ctrl_2);
-
-		dac_read(phy, DAC_REG_VERSION, &dds_st[phy->id_no].pcore_version);
-
-		dac_stop(phy);
-		switch (data_sel) {
-		case DATA_SEL_DDS:
-			dds_default_setup(phy, DDS_CHAN_TX1_I_F1, 90000, 1000000, 250000);
-			dds_default_setup(phy, DDS_CHAN_TX1_I_F2, 90000, 1000000, 250000);
-			dds_default_setup(phy, DDS_CHAN_TX1_Q_F1, 0, 1000000, 250000);
-			dds_default_setup(phy, DDS_CHAN_TX1_Q_F2, 0, 1000000, 250000);
 			if(dds_st[phy->id_no].rx2tx2)
 			{
-				dds_default_setup(phy, DDS_CHAN_TX2_I_F1, 90000, 1000000, 250000);
-				dds_default_setup(phy, DDS_CHAN_TX2_I_F2, 90000, 1000000, 250000);
-				dds_default_setup(phy, DDS_CHAN_TX2_Q_F1, 0, 1000000, 250000);
-				dds_default_setup(phy, DDS_CHAN_TX2_Q_F2, 0, 1000000, 250000);
+#ifdef FMCOMMS5
+				for(index = 0, index_mem = 0; index < (tx_count * 2); index += 2, index_mem += 4)
+#else
+				for(index = 0; index < tx_count; index += 4)
+#endif
+				{
+					data_i1 = (buf[index] << 20);
+					data_q1 = (buf[index + 1] << 4);
+					Xil_Out32(DAC_DDR_BASEADDR + index * 2, data_i1 | data_q1);
+
+					data_i2 = (buf[index + 2] << 20);
+					data_q2 = (buf[index + 3] << 4);
+					Xil_Out32(DAC_DDR_BASEADDR + index * 2 + 4, data_i2 | data_q2);
+#ifdef FMCOMMS5
+					Xil_Out32(DAC_DDR_BASEADDR + (index_mem + 2) * 4, data_i1 | data_q1);
+					Xil_Out32(DAC_DDR_BASEADDR + (index_mem + 3) * 4, data_i2 | data_q2);
+#endif
+				}
 			}
-			dac_datasel(phy, -1, DATA_SEL_DDS);
-			break;
-		case DATA_SEL_DMA:
-			if(config_dma)
+			else
 			{
-				tx_count = sizeof(sine_lut1) / sizeof(uint16_t);
-				if(dds_st[phy->id_no].rx2tx2)
+				for(index = 0; index < tx_count; index += 1)
 				{
-	#ifdef FMCOMMS5
-					for(index = 0, index_mem = 0; index < (tx_count * 2); index += 2, index_mem += 4)
-	#else
-					for(index = 0, index_mem = 0; index < (tx_count * 2); index += 2, index_mem += 2)
-	#endif
-					{
-						index_i1 = index;
-						index_q1 = index + (tx_count / 2);
-						if(index_q1 >= (tx_count * 2))
-							index_q1 -= (tx_count * 2);
-						data_i1 = (sine_lut1[index_i1 / 2] << 20);
-						data_q1 = (sine_lut1[index_q1 / 2] << 4);
-						Xil_Out32(DAC_DDR_BASEADDR + index_mem * 4, data_i1 | data_q1);
-
-						index_i2 = index_i1;
-						index_q2 = index_q1;
-						if(index_i2 >= (tx_count * 2))
-							index_i2 -= (tx_count * 2);
-						if(index_q2 >= (tx_count * 2))
-							index_q2 -= (tx_count * 2);
-						data_i2 = (sine_lut1[index_i2 / 2] << 20);
-						data_q2 = (sine_lut1[index_q2 / 2] << 4);
-						Xil_Out32(DAC_DDR_BASEADDR + (index_mem + 1) * 4, data_i2 | data_q2);
-	#ifdef FMCOMMS5
-						Xil_Out32(DAC_DDR_BASEADDR + (index_mem + 2) * 4, data_i1 | data_q1);
-						Xil_Out32(DAC_DDR_BASEADDR + (index_mem + 3) * 4, data_i2 | data_q2);
-	#endif
-					}
+					index_i1 = index;
+					index_q1 = index + (tx_count / 4);
+					if(index_q1 >= tx_count)
+						index_q1 -= tx_count;
+					data_i1 = (buf[index_i1] << 20);
+					data_q1 = (buf[index_q1] << 4);
+					Xil_Out32(DAC_DDR_BASEADDR + index * 4, data_i1 | data_q1);
 				}
-				else
-				{
-					for(index = 0; index < tx_count; index += 1)
-					{
-						index_i1 = index;
-						index_q1 = index + (tx_count / 4);
-						if(index_q1 >= tx_count)
-							index_q1 -= tx_count;
-						data_i1 = (sine_lut1[index_i1] << 20);
-						data_q1 = (sine_lut1[index_q1] << 4);
-						Xil_Out32(DAC_DDR_BASEADDR + index * 4, data_i1 | data_q1);
-					}
-				}
-				Xil_DCacheFlush();
-				if(dds_st[phy->id_no].rx2tx2)
-				{
-					length = (tx_count * 8);
-				}
-				else
-				{
-					length = (tx_count * 4);
-				}
-	#ifdef FMCOMMS5
-				length = (tx_count * 16);
-	#endif
-				dac_dma_write(AXI_DMAC_REG_CTRL, 0);
-				dac_dma_write(AXI_DMAC_REG_CTRL, AXI_DMAC_CTRL_ENABLE);
-				dac_dma_write(AXI_DMAC_REG_FLAGS, DMAC_FLAGS_CYCLIC);
-				dac_dma_write(AXI_DMAC_REG_SRC_ADDRESS, DAC_DDR_BASEADDR);
-				dac_dma_write(AXI_DMAC_REG_SRC_STRIDE, 0x0);
-				dac_dma_write(AXI_DMAC_REG_X_LENGTH, length - 1);
-				dac_dma_write(AXI_DMAC_REG_Y_LENGTH, 0x0);
-				dac_dma_write(AXI_DMAC_REG_START_TRANSFER, 0x1);
 			}
-			dac_datasel(phy, -1, DATA_SEL_DMA);
-			break;
-		default:
-			break;
+			Xil_DCacheFlush();
+			length = tx_count;
+
+#ifdef FMCOMMS5
+			length = (tx_count * 16);
+#endif
+			dac_dma_write(AXI_DMAC_REG_CTRL, 0);
+			dac_dma_write(AXI_DMAC_REG_CTRL, AXI_DMAC_CTRL_ENABLE);
+			dac_dma_write(AXI_DMAC_REG_FLAGS, DMAC_FLAGS_CYCLIC);
+			dac_dma_write(AXI_DMAC_REG_SRC_ADDRESS, DAC_DDR_BASEADDR);
+			dac_dma_write(AXI_DMAC_REG_SRC_STRIDE, 0x0);
+			dac_dma_write(AXI_DMAC_REG_X_LENGTH, length - 1);
+			dac_dma_write(AXI_DMAC_REG_Y_LENGTH, 0x0);
+			dac_dma_write(AXI_DMAC_REG_START_TRANSFER, 0x1);
 		}
-		dds_st[phy->id_no].enable = true;
-		dac_start_sync(phy, 0);
-
-
+		dac_datasel(phy, -1, DATA_SEL_DMA);
+		break;
+	default:
+		break;
+	}
+	dds_st[phy->id_no].enable = true;
+	dac_start_sync(phy, 0);
 }
 
 /***************************************************************************//**
