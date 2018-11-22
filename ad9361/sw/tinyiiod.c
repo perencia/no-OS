@@ -191,10 +191,8 @@ int tinyiiod_do_writebuf(struct tinyiiod *iiod,
 	if(bytes_count != bytes_received) {
 		return -EPIPE;
 	}
-
-	tinyiiod_write_value(iiod, (int) bytes_count);
 	iiod->ops->write_device(device, buffer, bytes_count);
-
+	tinyiiod_write_value(iiod, (int) bytes_count);
 	return 0;
 }
 

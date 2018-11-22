@@ -1679,14 +1679,9 @@ static int get_mask(const char *device, uint32_t *mask)
 	*mask = input_channel_mask; // this way client has to do demux of data
 	return 0;
 }
-extern const uint16_t sine_lut[128];
-extern const uint16_t sine_lut1[128];
+
 static ssize_t write_dev(const char *device, const char *buf, size_t bytes_count)
 {
-	//todo
-
-	//uint32_t tx_count = sizeof(sine_lut1) / sizeof(uint16_t);
-	//dac_write_buffer(ad9361_phy, (uint16_t *)sine_lut, tx_count);
 	dac_write_buffer(ad9361_phy, (uint16_t *)buf, bytes_count);
 	return bytes_count;
 }
