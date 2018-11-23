@@ -247,12 +247,12 @@ void dac_write_buffer(struct ad9361_rf_phy *phy, uint16_t *buf, uint32_t buff_si
 			for(index = 0; index < tx_count; index += 4)
 #endif
 			{
-				data_i1 = (buf[index] << 20);
-				data_q1 = (buf[index + 1] << 4);
+				data_i1 = (buf[index] << 16);
+				data_q1 = (buf[index + 1]);
 				Xil_Out32(DAC_DDR_BASEADDR + index * 2, data_i1 | data_q1);
 
-				data_i2 = (buf[index + 2] << 20);
-				data_q2 = (buf[index + 3] << 4);
+				data_i2 = (buf[index + 2] << 16);
+				data_q2 = (buf[index + 3]);
 				Xil_Out32(DAC_DDR_BASEADDR + index * 2 + 4, data_i2 | data_q2);
 #ifdef FMCOMMS5
 				Xil_Out32(DAC_DDR_BASEADDR + (index_mem + 2) * 4, data_i1 | data_q1);
@@ -264,8 +264,8 @@ void dac_write_buffer(struct ad9361_rf_phy *phy, uint16_t *buf, uint32_t buff_si
 		{
 			for(index = 0; index < tx_count; index += 2)
 			{
-				data_i1 = (buf[index] << 20);
-				data_q1 = (buf[index + 1] << 4);
+				data_i1 = (buf[index] << 16);
+				data_q1 = (buf[index + 1] << 0);
 				Xil_Out32(DAC_DDR_BASEADDR + index * 2, data_i1 | data_q1);
 			}
 		}
@@ -285,7 +285,6 @@ void dac_write_buffer(struct ad9361_rf_phy *phy, uint16_t *buf, uint32_t buff_si
 		dac_dma_write(AXI_DMAC_REG_START_TRANSFER, 0x1);
 	}
 	dac_datasel(phy, -1, DATA_SEL_DMA);
-
 	dds_st[phy->id_no].enable = true;
 	dac_start_sync(phy, 0);
 }
