@@ -271,7 +271,7 @@ int UartPsIntrExample(INTC *IntcInstPtr, XUartPs *UartInstPtr,
 	XUartPs_SetInterruptMask(UartInstPtr, IntrMask);
 
 	XUartPs_SetOperMode(UartInstPtr, XUARTPS_OPER_MODE_NORMAL);
-
+	XUartPs_SetBaudRate(UartInstPtr, 921600);
 	/*
 	 * Set the receiver timeout. If it is not set, and the last few bytes
 	 * of data do not trigger the over-water or full interrupt, the bytes
