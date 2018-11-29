@@ -131,5 +131,6 @@ uint64_t do_div(uint64_t* n,
 uint32_t find_first_bit(uint32_t word);
 void * ERR_PTR(long error);
 void *zmalloc(size_t size);
+uint32_t hweight8(uint32_t word);
 
 #endif

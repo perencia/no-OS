@@ -344,3 +344,19 @@ void *zmalloc(size_t size)
 
 	return ptr;
 }
+
+/**
+ * Calculate the number of set bits.
+ */
+uint32_t hweight8(uint32_t word)
+{
+	uint32_t count = 0;
+
+	while (word) {
+		if (word & 0x1)
+			count++;
+		word >>= 1;
+	}
+
+	return count;
+}

@@ -247,12 +247,12 @@ void dac_write_buffer(struct ad9361_rf_phy *phy, uint16_t *buf, uint32_t buff_si
 			for(index = 0; index < tx_count; index += 4)
 #endif
 			{
-				data_i1 = (buf[index] << 16);
-				data_q1 = (buf[index + 1]);
+				data_i1 = (buf[index]);
+				data_q1 = (buf[index + 1] << 16);
 				Xil_Out32(DAC_DDR_BASEADDR + index * 2, data_i1 | data_q1);
 
-				data_i2 = (buf[index + 2] << 16);
-				data_q2 = (buf[index + 3]);
+				data_i2 = (buf[index + 2]);
+				data_q2 = (buf[index + 3] << 16);
 				Xil_Out32(DAC_DDR_BASEADDR + index * 2 + 4, data_i2 | data_q2);
 #ifdef FMCOMMS5
 				Xil_Out32(DAC_DDR_BASEADDR + (index_mem + 2) * 4, data_i1 | data_q1);
@@ -264,8 +264,8 @@ void dac_write_buffer(struct ad9361_rf_phy *phy, uint16_t *buf, uint32_t buff_si
 		{
 			for(index = 0; index < tx_count; index += 2)
 			{
-				data_i1 = (buf[index] << 16);
-				data_q1 = (buf[index + 1] << 0);
+				data_i1 = (buf[index]);
+				data_q1 = (buf[index + 1] << 16);
 				Xil_Out32(DAC_DDR_BASEADDR + index * 2, data_i1 | data_q1);
 			}
 		}
