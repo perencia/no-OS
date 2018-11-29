@@ -18,7 +18,7 @@
 #ifndef TINYIIOD_USER_H
 #define TINYIIOD_USER_H
 
-#define USE_LIBIIO   YES
+
 
 //#define ARRAY_SIZE(v) (sizeof(v) ? sizeof(v) / sizeof((v)[0]) : 0)
 

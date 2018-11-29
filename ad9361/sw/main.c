@@ -55,10 +55,10 @@
 #include "adc_core.h"
 #include "dac_core.h"
 #endif
-
+#ifdef USE_LIBIIO
 #include "tinyiiod.h"
 #include "tinyiiod_user.h"
-
+#endif
 /******************************************************************************/
 /************************ Variables Definitions *******************************/
 /******************************************************************************/
@@ -371,7 +371,8 @@ struct ad9361_rf_phy *ad9361_phy;
 struct ad9361_rf_phy *ad9361_phy_b;
 #endif
 
-#if (USE_LIBIIO == YES)
+
+#ifdef USE_LIBIIO
 extern struct tinyiiod_ops ops;
 #endif
 
@@ -380,7 +381,7 @@ extern struct tinyiiod_ops ops;
 *******************************************************************************/
 int main(void)
 {
-#if (USE_LIBIIO == YES)
+#ifdef	USE_LIBIIO
 	struct tinyiiod *iiod;
 #endif
 
@@ -502,7 +503,7 @@ int main(void)
 #endif
 #endif
 
-#if (USE_LIBIIO == YES)
+#ifdef USE_LIBIIO
 	init_uart();
 	/* Create the tinyiiod */
 	iiod = tinyiiod_create(xml, &ops);

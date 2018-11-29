@@ -33,7 +33,6 @@
 #include "xil_cache.h"
 #include "platform.h"
 
-static unsigned int addr_to_read;
 static uint32_t request_mask;
 // mask for cf-ad9361-lpc 0x0F, it has 4 channels
 static uint32_t input_channel_mask = 0x0F;
@@ -112,21 +111,6 @@ static bool strequal(const char *str1, const char *str2)
 	return !strcmp(str1, str2);
 }
 
-/***********************************************************************************************************************
-* Function Name: u_to_string
-* Description  : None
-* Arguments    : None
-* Return Value : None
-***********************************************************************************************************************/
-static ssize_t u_to_string(char *buf, size_t len, unsigned int value)
-{
-	return (ssize_t) snprintf(buf, len, "%u", value);
-}
-
-static ssize_t i_to_string(char *buf, size_t len, int value)
-{
-	return (ssize_t) snprintf(buf, len, "%d", value);
-}
 /***********************************************************************************************************************
 * Function Name: dev_is_temp_module
 * Description  : None
@@ -1695,7 +1679,7 @@ static ssize_t write_dev(const char *device, const char *buf, size_t bytes_count
 ***********************************************************************************************************************/
 static ssize_t read_dev(const char *device, char **pbuf, size_t bytes_count)
 {
-	int i, sampleSize;
+	int sampleSize;
 
 	if (!dev_is_ad9361_module(device))
 			return -ENODEV;
@@ -1710,17 +1694,6 @@ static ssize_t read_dev(const char *device, char **pbuf, size_t bytes_count)
 	}
 
 	adc_capture(sampleSize, ADC_DDR_BASEADDR);
-	Xil_DCacheInvalidateRange(ADC_DDR_BASEADDR,	bytes_count);
-	*pbuf = (char *)ADC_DDR_BASEADDR;
-	return bytes_count;
-}
-
-
-static ssize_t read_dev_ok(const char *device, char **pbuf, size_t bytes_count)
-{
-	if (!dev_is_ad9361_module(device))
-		return -ENODEV;
-	adc_capture(bytes_count, ADC_DDR_BASEADDR);
 	Xil_DCacheInvalidateRange(ADC_DDR_BASEADDR,	bytes_count);
 	*pbuf = (char *)ADC_DDR_BASEADDR;
 	return bytes_count;
@@ -1747,6 +1720,8 @@ const struct tinyiiod_ops ops = {
 	.ch_write_attr = ch_write_attr,
 	.read_device = read_dev,
 	.write_device = write_dev,
+	.read_reg = read_reg,
+	.write_reg = write_reg,
 
 	//
 	.open = open_dev,
