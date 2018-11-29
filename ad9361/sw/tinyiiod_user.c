@@ -980,7 +980,9 @@ ssize_t get_cf_samples_pps(char *buf, size_t len, const struct channel_info *cha
 	return -ENODEV;
 }
 ssize_t get_cf_sampling_frequency(char *buf, size_t len, const struct channel_info *channel) {
-	return -ENODEV;
+	uint32_t sampling_freq_hz;
+	ad9361_get_rx_sampling_freq (ad9361_phy, &sampling_freq_hz);
+	return (ssize_t) snprintf(buf, len, "%d", (int)sampling_freq_hz);
 }
 static struct attrtibute_map cf_voltage_read_attrtibute_map[] = {
 	{"calibphase", get_cf_calibphase},
@@ -1691,7 +1693,7 @@ static ssize_t write_dev(const char *device, const char *buf, size_t bytes_count
 * Arguments    : None
 * Return Value : None
 ***********************************************************************************************************************/
-static ssize_t read_dev(const char *device, char *buf, size_t bytes_count)
+static ssize_t read_dev(const char *device, char **pbuf, size_t bytes_count)
 {
 	int i, sampleSize;
 
@@ -1709,10 +1711,18 @@ static ssize_t read_dev(const char *device, char *buf, size_t bytes_count)
 
 	adc_capture(sampleSize, ADC_DDR_BASEADDR);
 	Xil_DCacheInvalidateRange(ADC_DDR_BASEADDR,	bytes_count);
+	*pbuf = (char *)ADC_DDR_BASEADDR;
+	return bytes_count;
+}
 
-	for ( i = 0; i < bytes_count; i++)
-		buf[i] = Xil_In8(ADC_DDR_BASEADDR + i);
 
+static ssize_t read_dev_ok(const char *device, char **pbuf, size_t bytes_count)
+{
+	if (!dev_is_ad9361_module(device))
+		return -ENODEV;
+	adc_capture(bytes_count, ADC_DDR_BASEADDR);
+	Xil_DCacheInvalidateRange(ADC_DDR_BASEADDR,	bytes_count);
+	*pbuf = (char *)ADC_DDR_BASEADDR;
 	return bytes_count;
 }
 

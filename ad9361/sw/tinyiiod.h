@@ -56,7 +56,7 @@ struct tinyiiod_ops {
 	int (*open)(const char *device, size_t sample_size, uint32_t mask);
 	int (*close)(const char *device);
 
-	ssize_t (*read_device)(const char *device, char *buf, size_t bytes_count);
+	ssize_t (*read_device)(const char *device, char **pbuf, size_t bytes_count);
 	ssize_t (*write_device)(const char *device, const char *buf, size_t bytes_count);
 
 	int (*get_mask)(const char *device, uint32_t *mask);
