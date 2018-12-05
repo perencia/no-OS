@@ -1420,6 +1420,7 @@ ssize_t get_dds_altvoltage_frequency(char *buf, size_t len,
 	return snprintf(buf, len, "%ld", freq);
 }
 
+extern int32_t ad9361_auxdac_get(struct ad9361_rf_phy *phy, int32_t dac);
 /**
  * get_dds_altvoltage_raw
  * @param *buff where value is stored
@@ -1430,8 +1431,7 @@ ssize_t get_dds_altvoltage_frequency(char *buf, size_t len,
 ssize_t get_dds_altvoltage_raw(char *buf, size_t len,
 			       const struct channel_info *channel)
 {
-
-	return -ENODEV;
+	return snprintf(buf, len, "%ld", ad9361_auxdac_get(ad9361_phy, channel->ch_num));
 }
 
 /**
@@ -1788,7 +1788,23 @@ ssize_t set_rf_port_select(char *buf, size_t len,
 ssize_t set_gain_control_mode(char *buf, size_t len,
 			      const struct channel_info *channel)
 {
-	return -ENODEV;
+	struct rf_gain_ctrl gc = {0};
+	int i;
+	for(i = 0; i < sizeof(ad9361_agc_modes) / sizeof(ad9361_agc_modes[0]); i++) {
+		if(strequal(ad9361_agc_modes[i], buf)) {
+			break;
+		}
+	}
+	if(i >= sizeof(ad9361_agc_modes) / sizeof(ad9361_agc_modes[0])) {
+		return -EINVAL;
+	}
+	uint32_t mode = i;
+	if (ad9361_phy->agc_mode[channel->ch_num] == mode)
+		return len;
+	gc.ant = ad9361_1rx1tx_channel_map(ad9361_phy, false, channel->ch_num + 1);
+	gc.mode = ad9361_phy->agc_mode[channel->ch_num] = mode;
+	ad9361_set_gain_ctrl_mode(ad9361_phy, &gc);
+	return len;
 }
 
 /**
@@ -2307,6 +2323,8 @@ ssize_t set_dds_altvoltage_frequency(char *buf, size_t len,
 	return len;
 }
 
+extern int32_t ad9361_auxdac_set(struct ad9361_rf_phy *phy, int32_t dac,
+				 int32_t val_mV);
 /**
  * set_dds_altvoltage_raw
  * @param *buff value to be written to attribute
@@ -2317,12 +2335,7 @@ ssize_t set_dds_altvoltage_frequency(char *buf, size_t len,
 ssize_t set_dds_altvoltage_raw(char *buf, size_t len,
 			       const struct channel_info *channel)
 {
-	uint32_t dds_mode = read_ul_value(buf);
-	if(dds_mode) { 		//DDS mode selected
-		dac_datasel(ad9361_phy, -1, DATA_SEL_DDS);
-	} else {				//DMA mode selected
-		dac_datasel(ad9361_phy, -1, DATA_SEL_DMA);
-	}
+	ad9361_auxdac_set(ad9361_phy, channel->ch_num, read_ul_value(buf));
 	return len;
 }
 
