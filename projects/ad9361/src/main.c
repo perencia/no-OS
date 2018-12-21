@@ -43,7 +43,6 @@
 #include "config.h"
 #include "ad9361_api.h"
 #include "parameters.h"
-#include "platform.h"
 #ifdef CONSOLE_COMMANDS
 #include "command.h"
 #include "console.h"
@@ -52,14 +51,15 @@
 #include <xil_cache.h>
 #endif
 #if defined XILINX_PLATFORM || defined LINUX_PLATFORM || defined ALTERA_PLATFORM
-#include "adc_core.h"
-#include "dac_core.h"
+#include "axi_adc_core.h"
+#include "axi_dac_core.h"
+#include "axi_dmac.h"
 #endif
 #ifdef USE_LIBIIO
 #include "serial.h"
 #include "tinyiiod.h"
 #include "tinyiiod_user.h"
-#endif
+#endif // USE_LIBIIO
 /******************************************************************************/
 /************************ Variables Definitions *******************************/
 /******************************************************************************/
@@ -76,7 +76,28 @@ char				received_cmd[30] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 										0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 										0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 #endif
-
+struct axi_adc_init rx_adc_init = {
+		"rx_adc",
+		RX_CORE_BASEADDR,
+		4,
+	};
+struct axi_dac_init tx_dac_init = {
+		"rx_dac",
+		TX_CORE_BASEADDR,
+		4,
+	};
+struct axi_dmac_init rx_dmac_init = {
+		"rx_dmac",
+		CF_AD9361_RX_DMA_BASEADDR, //RX_CORE_BASEADDR, //
+		DMA_DEV_TO_MEM,
+		0,
+	};
+struct axi_dmac_init tx_dmac_init = {
+		"tx_dmac",
+		CF_AD9361_TX_DMA_BASEADDR, // TX_CORE_BASEADDR, //
+		DMA_MEM_TO_DEV,
+		0,
+	};
 AD9361_InitParam default_init_param = {
 	/* Device selection */
 	ID_AD9361,	// dev_sel
@@ -315,7 +336,15 @@ AD9361_InitParam default_init_param = {
 	/* External LO clocks */
 	NULL,	//(*ad9361_rfpll_ext_recalc_rate)()
 	NULL,	//(*ad9361_rfpll_ext_round_rate)()
-	NULL	//(*ad9361_rfpll_ext_set_rate)()
+	NULL,	//(*ad9361_rfpll_ext_set_rate)()
+	NULL,	//spi_desc *spi
+	NULL,	//gpio_desc *gpio_device_id
+	NULL,	//gpio_desc *gpio_resetb
+	NULL, 	//gpio_desc *gpio_desc_sync;
+	&rx_adc_init,
+	&tx_dac_init,   //axi_dac_init *tx_dac_init;
+	&rx_dmac_init,
+	&tx_dmac_init,
 };
 
 AD9361_RXFIRConfig rx_fir_config = {	// BPF PASSBAND 3/20 fs to 1/4 fs
@@ -376,11 +405,14 @@ struct ad9361_rf_phy *ad9361_phy_b;
 extern struct tinyiiod_ops ops;
 #endif
 
+struct spi_init_param spi_param = {.id = SPI_DEVICE_ID, .mode = SPI_MODE_1, .chip_select = CLK_CS };
+
 /***************************************************************************//**
  * @brief main
 *******************************************************************************/
 int main(void)
 {
+	int32_t status = 0;
 #ifdef	USE_LIBIIO
 	struct tinyiiod *iiod;
 #endif
@@ -400,8 +432,10 @@ int main(void)
 	// NOTE: The user has to choose the GPIO numbers according to desired
 	// carrier board.
 	default_init_param.gpio_resetb = GPIO_RESET_PIN;
+	status = gpio_get(&default_init_param.gpio_desc_resetb, GPIO_RESET_PIN);
 #ifdef FMCOMMS5
 	default_init_param.gpio_sync = GPIO_SYNC_PIN;
+	status = gpio_get(&default_init_param.gpio_desc_resetb, GPIO_SYNC_PIN);
 	default_init_param.gpio_cal_sw1 = GPIO_CAL_SW1_PIN;
 	default_init_param.gpio_cal_sw2 = GPIO_CAL_SW2_PIN;
 	default_init_param.rx1rx2_phase_inversion_en = 1;
@@ -412,13 +446,18 @@ int main(void)
 #endif
 
 #ifdef LINUX_PLATFORM
-	gpio_init(default_init_param.gpio_resetb);
+	status = gpio_get(&gpio_resetb, CLK_RESETB);
 #else
-	gpio_init(GPIO_DEVICE_ID);
+	status = gpio_get(&default_init_param.gpio_desc_device_id, 0);
 #endif
-	gpio_direction(default_init_param.gpio_resetb, 1);
+	gpio_direction_output(default_init_param.gpio_desc_resetb, 0);
 
-	spi_init(SPI_DEVICE_ID, 1, 0);
+	status = spi_init(&default_init_param.spi, &spi_param);
+
+	if (status != SUCCESS) {
+		printf("SPI init error: %ld\n", status);
+		return status;
+	}
 
 	if (AD9364_DEVICE)
 		default_init_param.dev_sel = ID_AD9364;
@@ -437,7 +476,12 @@ int main(void)
 	default_init_param.digital_interface_tune_fir_disable = 1;
 #endif
 
-	ad9361_init(&ad9361_phy, &default_init_param);
+	status = ad9361_init(&ad9361_phy, &default_init_param);
+	if (status < 0)
+	{
+		printf("ad9361 init error: %ld\n", status);
+		return status;
+	}
 
 	ad9361_set_tx_fir_config(ad9361_phy, tx_fir_config);
 	ad9361_set_rx_fir_config(ad9361_phy, rx_fir_config);
@@ -475,7 +519,9 @@ int main(void)
 #ifdef FMCOMMS5
 	dac_init(ad9361_phy_b, DATA_SEL_DDS, 0);
 #endif
-	dac_init(ad9361_phy, DATA_SEL_DDS, 1);
+	axi_dmac_init(&ad9361_phy->tx_dmac, default_init_param.tx_dmac_init);
+	axi_dmac_init(&ad9361_phy->rx_dmac, default_init_param.rx_dmac_init);
+	axi_dac_init(&ad9361_phy->tx_dac, ad9361_phy->tx_dac_init);
 #endif
 #endif
 #endif

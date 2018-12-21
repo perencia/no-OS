@@ -15,6 +15,7 @@
  * Lesser General Public License for more details.
  */
 
+#include "ad9361_parameters.h"
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
@@ -24,20 +25,19 @@
 #include <stdlib.h>
 #include "tinyiiod.h"
 #include "tinyiiod_user.h"
-#include "adc_core.h"
-#include "dac_core.h"
-#include "parameters.h"
+#include "axi_adc_core.h"
+#include "axi_dac_core.h"
+#include "axi_dmac.h"
+#include "util.h"
 #include "xil_io.h"
 #include "ad9361_api.h"
 #include "serial.h"
 #include "xil_cache.h"
-#include "platform.h"
-
+#include "platform_drivers.h"
 static uint32_t request_mask;
 // mask for cf-ad9361-lpc 0x0F, it has 4 channels
 static uint32_t input_channel_mask = 0x0F;
 extern struct ad9361_rf_phy *ad9361_phy;
-extern struct adc_state adc_st;
 
 static const char * const ad9361_agc_modes[] =
 {"manual", "fast_attack", "slow_attack", "hybrid"};
@@ -176,8 +176,8 @@ int get_channel(char *ch, char *ch_name)
 	}
 }
 
-extern int32_t ad9361_spi_read(struct spi_device *spi, uint32_t reg);
-extern int32_t ad9361_spi_write(struct spi_device *spi, uint32_t reg,
+extern int32_t ad9361_spi_read(struct spi_desc *spi, uint32_t reg);
+extern int32_t ad9361_spi_write(struct spi_desc *spi, uint32_t reg,
 				uint32_t val);
 
 /**
@@ -1322,7 +1322,8 @@ ssize_t get_dds_calibscale(char *buf, size_t len,
 			   const struct channel_info *channel)
 {
 	int32_t val, val2;
-	ssize_t ret = dds_get_calib_scale(ad9361_phy, channel->ch_num, &val, &val2);
+	ssize_t ret = axi_dac_dds_get_calib_scale(ad9361_phy->tx_dac, channel->ch_num,
+			&val, &val2);
 	int i = 0;
 	if(ret < 0)
 		return ret;
@@ -1346,7 +1347,8 @@ ssize_t get_dds_calibphase(char *buf, size_t len,
 {
 	int32_t val, val2;
 	int i = 0;
-	ssize_t ret = dds_get_calib_phase(ad9361_phy, channel->ch_num, &val, &val2);
+	ssize_t ret = axi_dac_dds_get_calib_phase(ad9361_phy->tx_dac, channel->ch_num,
+			&val, &val2);
 	if(ret < 0)
 		return ret;
 	if(val2 < 0 && val >= 0) {
@@ -1386,7 +1388,7 @@ ssize_t get_dds_altvoltage_phase(char *buf, size_t len,
 				 const struct channel_info *channel)
 {
 	uint32_t phase;
-	dds_get_phase(ad9361_phy, channel->ch_num, &phase);
+	axi_dac_dds_get_phase(ad9361_phy->tx_dac, channel->ch_num, &phase);
 	return snprintf(buf, len, "%lu", phase);
 }
 
@@ -1401,7 +1403,7 @@ ssize_t get_dds_altvoltage_scale(char *buf, size_t len,
 				 const struct channel_info *channel)
 {
 	int32_t scale;
-	dds_get_scale(ad9361_phy, channel->ch_num, &scale);
+	axi_dac_dds_get_scale(ad9361_phy->tx_dac, channel->ch_num, &scale);
 	return snprintf(buf, len, "%ld.%.6ld", (scale / 1000000), (scale % 1000000));
 }
 
@@ -1416,7 +1418,7 @@ ssize_t get_dds_altvoltage_frequency(char *buf, size_t len,
 				     const struct channel_info *channel)
 {
 	uint32_t freq;
-	dds_get_frequency(ad9361_phy, channel->ch_num, &freq);
+	axi_dac_dds_get_frequency(ad9361_phy->tx_dac, channel->ch_num, &freq);
 	return snprintf(buf, len, "%ld", freq);
 }
 
@@ -1431,7 +1433,8 @@ extern int32_t ad9361_auxdac_get(struct ad9361_rf_phy *phy, int32_t dac);
 ssize_t get_dds_altvoltage_raw(char *buf, size_t len,
 			       const struct channel_info *channel)
 {
-	return snprintf(buf, len, "%ld", ad9361_auxdac_get(ad9361_phy, channel->ch_num));
+	return snprintf(buf, len, "%ld", ad9361_auxdac_get(ad9361_phy,
+			channel->ch_num));
 }
 
 /**
@@ -1467,7 +1470,8 @@ ssize_t get_cf_calibphase(char *buf, size_t len,
 {
 	int32_t val, val2;
 	int i = 0;
-	ssize_t ret = adc_get_calib_phase(ad9361_phy, channel->ch_num, &val, &val2);
+	ssize_t ret = axi_adc_get_calib_phase(ad9361_phy->rx_adc, channel->ch_num, &val,
+					      &val2);
 	if(ret < 0)
 		return ret;
 	if(val2 < 0 && val >= 0) {
@@ -1488,8 +1492,9 @@ ssize_t get_cf_calibbias(char *buf, size_t len,
 			 const struct channel_info *channel)
 {
 	int val;
-	unsigned int tmp = axiadc_read(ad9361_phy->adc_state,
-				       ADI_REG_CHAN_CNTRL_1(channel->ch_num));
+	uint32_t tmp;
+	axi_adc_read(ad9361_phy->rx_adc,
+		     ADI_REG_CHAN_CNTRL_1(channel->ch_num), &tmp);
 	val = (short)ADI_TO_DCFILT_OFFSET(tmp);
 	return snprintf(buf, len, "%d", val);
 }
@@ -2237,7 +2242,7 @@ ssize_t set_dds_calibscale(char *buf, size_t len,
 	float calib= strtof(buf, NULL);
 	int32_t val = (int32_t)calib;
 	int32_t val2 = (int32_t)(calib* 1000000) % 1000000;
-	dds_set_calib_scale(ad9361_phy, channel->ch_num, val, val2);
+	axi_dac_dds_set_calib_scale(ad9361_phy->tx_dac, channel->ch_num, val, val2);
 	return len;
 }
 
@@ -2254,7 +2259,7 @@ ssize_t set_dds_calibphase(char *buf, size_t len,
 	float calib = strtof(buf, NULL);
 	int32_t val = (int32_t)calib;
 	int32_t val2 = (int32_t)(calib* 1000000) % 1000000;
-	dds_set_calib_phase(ad9361_phy, channel->ch_num, val, val2);
+	axi_dac_dds_set_calib_phase(ad9361_phy->tx_dac, channel->ch_num, val, val2);
 	return len;
 }
 
@@ -2288,7 +2293,7 @@ ssize_t set_dds_altvoltage_phase(char *buf, size_t len,
 				 const struct channel_info *channel)
 {
 	uint32_t phase = read_ul_value(buf);
-	dds_set_phase(ad9361_phy, channel->ch_num, phase);
+	axi_dac_dds_set_phase(ad9361_phy->tx_dac, channel->ch_num, phase);
 	return len;
 }
 
@@ -2304,7 +2309,7 @@ ssize_t set_dds_altvoltage_scale(char *buf, size_t len,
 {
 	float fscale = strtof(buf, NULL);
 	int32_t scale = fscale * 1000000;
-	dds_set_scale(ad9361_phy, channel->ch_num, scale);
+	axi_dac_dds_set_scale(ad9361_phy->tx_dac, channel->ch_num, scale);
 	return len;
 }
 
@@ -2319,7 +2324,7 @@ ssize_t set_dds_altvoltage_frequency(char *buf, size_t len,
 				     const struct channel_info *channel)
 {
 	uint32_t freq = read_ul_value(buf);
-	dds_set_frequency(ad9361_phy, channel->ch_num, freq);
+	axi_dac_dds_set_frequency(ad9361_phy->tx_dac, channel->ch_num, freq);
 	return len;
 }
 
@@ -2335,7 +2340,12 @@ extern int32_t ad9361_auxdac_set(struct ad9361_rf_phy *phy, int32_t dac,
 ssize_t set_dds_altvoltage_raw(char *buf, size_t len,
 			       const struct channel_info *channel)
 {
-	ad9361_auxdac_set(ad9361_phy, channel->ch_num, read_ul_value(buf));
+	uint32_t dds_mode = read_ul_value(buf);
+	if(dds_mode) { 		//DDS mode selected
+		axi_dac_datasel(ad9361_phy->tx_dac, -1, DATA_SEL_DDS);
+	} else {				//DMA mode selected
+		axi_dac_datasel(ad9361_phy->tx_dac, -1, DATA_SEL_DMA);
+	}
 	return len;
 }
 
@@ -2388,11 +2398,12 @@ ssize_t set_cf_calibbias(char *buf, size_t len,
 			 const struct channel_info *channel)
 {
 	int val = read_value(buf);
-	unsigned int tmp = axiadc_read(ad9361_phy->adc_state,
-				       ADI_REG_CHAN_CNTRL_1(channel->ch_num));
+	uint32_t tmp;
+	axi_adc_read(ad9361_phy->rx_adc,
+		     ADI_REG_CHAN_CNTRL_1(channel->ch_num), &tmp);
 	tmp &= ~ADI_DCFILT_OFFSET(~0);
 	tmp |= ADI_DCFILT_OFFSET((short)val);
-	axiadc_write(ad9361_phy->adc_state, ADI_REG_CHAN_CNTRL_1(channel->ch_num), tmp);
+	axi_adc_write(ad9361_phy->rx_adc, ADI_REG_CHAN_CNTRL_1(channel->ch_num), tmp);
 	return len;
 }
 
@@ -2619,7 +2630,10 @@ static int get_mask(const char *device, uint32_t *mask)
 static ssize_t write_dev(const char *device, const char *buf,
 			 size_t bytes_count)
 {
-	dac_write_buffer(ad9361_phy, (uint16_t *)buf, bytes_count);
+	ad9361_phy->tx_dmac->flags = DMA_CYCLIC;
+	axi_dmac_set_buff(DAC_DDR_BASEADDR, buf, bytes_count);
+	axi_dmac_transfer(ad9361_phy->tx_dmac, DAC_DDR_BASEADDR, bytes_count);
+	axi_dac_datasel(ad9361_phy->tx_dac, -1, DATA_SEL_DMA);
 	return bytes_count;
 }
 
@@ -2632,18 +2646,11 @@ static ssize_t write_dev(const char *device, const char *buf,
  */
 static ssize_t read_dev(const char *device, char **pbuf, size_t bytes_count)
 {
-	int sampleSize;
-
 	if (!dev_is_ad9361_module(device))
 		return -ENODEV;
-
-	if(adc_st.rx2tx2) {
-		sampleSize = bytes_count / 8;
-	} else {
-		sampleSize = bytes_count / 4;
-	}
-
-	adc_capture(sampleSize, ADC_DDR_BASEADDR);
+	ad9361_phy->rx_dmac->flags = 0;
+	axi_dmac_transfer(ad9361_phy->rx_dmac,
+			  ADC_DDR_BASEADDR, bytes_count);
 	Xil_DCacheInvalidateRange(ADC_DDR_BASEADDR,	bytes_count);
 	*pbuf = (char *)ADC_DDR_BASEADDR;
 	return bytes_count;

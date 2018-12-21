@@ -43,10 +43,35 @@
 /***************************** Include Files **********************************/
 /******************************************************************************/
 #include <stdint.h>
+#include "ad9361.h"
+
+
+/******************************************************************************/
+/********************** Macros and Constants Definitions **********************/
+/******************************************************************************/
+/* ADC COMMON */
+
+#define ADC_REG_CHAN_CNTRL_2(c)		(0x0414 + (c) * 0x40)
+#define ADC_IQCOR_COEFF_1(x)		(((x) & 0xFFFF) << 16)
+#define ADC_TO_IQCOR_COEFF_1(x)		(((x) >> 16) & 0xFFFF)
+#define ADC_IQCOR_COEFF_2(x)		(((x) & 0xFFFF) << 0)
+#define ADC_TO_IQCOR_COEFF_2(x)		(((x) >> 0) & 0xFFFF)
 
 /******************************************************************************/
 /*************************** Types Declarations *******************************/
 /******************************************************************************/
+
+enum adc_pn_sel {
+	ADC_PN9 = 0,
+	ADC_PN23A = 1,
+	ADC_PN7 = 4,
+	ADC_PN15 = 5,
+	ADC_PN23 = 6,
+	ADC_PN31 = 7,
+	ADC_PN_CUSTOM = 9,
+	ADC_PN_END = 10,
+};
+
 struct axi_adc {
 	const char *name;
 	uint32_t base;
@@ -66,5 +91,39 @@ struct axi_adc_init {
 int32_t axi_adc_init(struct axi_adc **adc_core,
 		     const struct axi_adc_init *init);
 int32_t axi_adc_remove(struct axi_adc *adc);
-
+int32_t axi_adc_get_calib_phase(struct axi_adc *adc,
+							uint32_t chan,
+							int32_t *val,
+							int32_t *val2);
+int32_t axi_adc_get_calib_scale_phase(struct axi_adc *adc,
+								  uint32_t phase,
+								  uint32_t chan,
+								  int32_t *val,
+								  int32_t *val2);
+int32_t axi_adc_read(struct axi_adc *adc,
+		     uint32_t reg_addr,
+		     uint32_t *reg_data);
+int32_t axi_adc_write(struct axi_adc *adc,
+		      uint32_t reg_addr,
+		      uint32_t reg_data);
+int axi_adc_post_setup(struct ad9361_rf_phy *phy);
+int axi_adc_set_pnsel(struct axiadc_state *st, int channel, enum adc_pn_sel sel);
+void axi_adc_idelay_set(struct axiadc_state *st,
+		       unsigned lane, unsigned val);
+int32_t adc_get_calib_scale(struct ad9361_rf_phy *phy,
+							uint32_t chan,
+							int32_t *val,
+							int32_t *val2);
+int32_t adc_get_calib_scale(struct ad9361_rf_phy *phy,
+							uint32_t chan,
+							int32_t *val,
+							int32_t *val2);
+int32_t adc_set_calib_phase(struct ad9361_rf_phy *phy,
+							uint32_t chan,
+							int32_t val,
+							int32_t val2);
+int32_t adc_set_calib_scale(struct ad9361_rf_phy *phy,
+							uint32_t chan,
+							int32_t val,
+							int32_t val2);
 #endif

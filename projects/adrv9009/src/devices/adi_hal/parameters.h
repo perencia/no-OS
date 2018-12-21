@@ -43,6 +43,7 @@
 /***************************** Include Files **********************************/
 /******************************************************************************/
 #include "platform_drivers.h"
+#include "config.h"
 #ifdef ALTERA_PLATFORM
 #include "system.h"
 #else
@@ -52,7 +53,14 @@
 /******************************************************************************/
 /********************** Macros and Constants Definitions **********************/
 /******************************************************************************/
-#ifdef ALTERA_PLATFORM
+#if defined (XILINX_PLATFORM)
+#include "ad9361_parameters.h"
+
+
+#define RX_CORE_BASEADDR AD9361_RX_0_BASEADDR
+#define TX_CORE_BASEADDR AD9361_TX_0_BASEADDR
+
+#elif defined (ALTERA_PLATFORM)
 #define GPIO_OFFSET		0
 #define CLK_CS			1
 #define ADRV_CS			2
@@ -95,7 +103,7 @@
 #define GPIO_BASEADDR			SYS_GPIO_OUT_BASE
 
 #define SPI_BASEADDR			SYS_SPI_BASE
-#else
+#else // ALTERA_PLATFORM
 #ifdef XPS_BOARD_ZCU102
 #define GPIO_OFFSET		78
 #define CLK_CS			1
@@ -129,5 +137,5 @@
 #define RX_DMA_BASEADDR			XPAR_AXI_ADRV9009_RX_DMA_BASEADDR
 
 #define DDR_MEM_BASEADDR		XPAR_DDR_MEM_BASEADDR
-#endif
+#endif // else
 #endif

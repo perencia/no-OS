@@ -106,7 +106,7 @@ void tinyiiod_write_value(struct tinyiiod *iiod, int value)
 {
 	char buf[16];
 
-	snprintf(buf, sizeof(buf), "%i\n", value);
+	snprintf(buf, sizeof(buf), "%i\r\n", value);
 	tinyiiod_write_string(iiod, buf);
 }
 
@@ -166,6 +166,9 @@ void tinyiiod_do_open(struct tinyiiod *iiod, const char *device,
 		      size_t sample_size, uint32_t mask)
 {
 	int ret = iiod->ops->open(device, sample_size, mask);
+	if(ret < 0) {
+		tinyiiod_write_value(iiod, ret -1);
+	}
 	tinyiiod_write_value(iiod, ret);
 }
 
