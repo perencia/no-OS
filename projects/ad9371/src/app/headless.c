@@ -47,10 +47,14 @@
 #include "Mykonos_M3.h"
 #include "mykonos_gpio.h"
 #include "platform_drivers.h"
-#include "adc_core.h"
-#include "dac_core.h"
-#include "jesd_core.h"
-#include "clkgen_core.h"
+#include "axi_adc_core.h"
+#include "axi_dac_core.h"
+#include "axi_dmac.h"
+#include "axi_jesd204_rx.h"
+#include "axi_jesd204_tx.h"
+#include "axi_adxcvr.h"
+#include "clk_axi_clkgen.h"
+#include "util.h"
 #include "parameters.h"
 
 /******************************************************************************/
@@ -58,69 +62,6 @@
 /******************************************************************************/
 extern ad9528Device_t	clockAD9528_;
 extern mykonosDevice_t	mykDevice;
-extern const uint32_t sine_lut_iq[1024];
-
-adc_core  ad9371_rx_core_init = {
-		AXI_AD9371_CORE_BASEADDR,  		// base_address
-		1, 								// master
-		4, 								// no_of_channels
-		16,								// resolution
-		ADC_DDR_BASEADDR				// adc_ddr_baseaddr
-};
-
-dac_channel ad9371_tx_channels[4] = {
-		{
-			3*1000*1000,	// dds_frequency_tone0
-			90000,			// dds_phase_tone0
-			50*1000,		// dds_scale_tone0	1.0*1000*1000
-			0,				// dds_frequency_tone1
-			0,				// dds_phase_tone1
-			0,				// dds_scale_tone1
-			1,				// dds_dual_tone
-			0,				// pat_data
-			DAC_SRC_DMA		// sel
-		}, {
-			3*1000*1000,	// dds_frequency_tone0
-			0,				// dds_phase_tone0
-			50*1000,		// dds_scale_tone0	1.0*1000*1000
-			0,				// dds_frequency_tone1
-			0,				// dds_phase_tone1
-			0,				// dds_scale_tone1
-			1,				// dds_dual_tone
-			0,				// pat_data
-			DAC_SRC_DMA		// sel
-		}, {
-			3*1000*1000,	// dds_frequency_tone0
-			90000,			// dds_phase_tone0
-			50*1000,		// dds_scale_tone0	1.0*1000*1000
-			0,				// dds_frequency_tone1
-			0,				// dds_phase_tone1
-			0,				// dds_scale_tone1
-			1,				// dds_dual_tone
-			0,				// pat_data
-			DAC_SRC_DMA		// sel
-		}, {
-			3*1000*1000,	// dds_frequency_tone0
-			0,				// dds_phase_tone0
-			50*1000,		// dds_scale_tone0	1.0*1000*1000
-			0,				// dds_frequency_tone1
-			0,				// dds_phase_tone1
-			0,				// dds_scale_tone1
-			1,				// dds_dual_tone
-			0,				// pat_data
-			DAC_SRC_DMA		// sel
-		}
-};
-
-dac_core  ad9371_tx_core_init = {
-		AXI_AD9371_CORE_BASEADDR, 		// base_address
-		16, 							// resolution
-		4, 								// no_of_channels
-		ad9371_tx_channels,				// *channels
-		DAC_DDR_BASEADDR,				// dac_ddr_baseaddr
-		DMA_PLDDR_FIFO,					// dma_type
-		DAC_GPIO_PLDDR_BYPASS, 			// plddr_bypass_gpio
-};
 
 /***************************************************************************//**
  * @brief main
@@ -151,6 +92,111 @@ int main(void)
 	uint32_t			trackingCalMask = TRACK_ORX1_QEC | TRACK_ORX2_QEC | TRACK_RX1_QEC |
 										  TRACK_RX2_QEC | TRACK_TX1_QEC | TRACK_TX2_QEC;
 	uint32_t			status;
+	struct axi_clkgen_init rx_clkgen_init = {
+		"rx_clkgen",
+		RX_CLKGEN_BASEADDR,
+		clockAD9528_device->outputSettings->outFrequency_Hz[1]
+	};
+	struct axi_clkgen_init tx_clkgen_init = {
+		"tx_clkgen",
+		TX_CLKGEN_BASEADDR,
+		clockAD9528_device->outputSettings->outFrequency_Hz[1]
+	};
+	struct axi_clkgen_init rx_os_clkgen_init = {
+		"rx_os_clkgen",
+		RX_OS_CLKGEN_BASEADDR,
+		clockAD9528_device->outputSettings->outFrequency_Hz[1]
+	};
+	struct axi_clkgen *rx_clkgen;
+	struct axi_clkgen *tx_clkgen;
+	struct axi_clkgen *rx_os_clkgen;
+	uint32_t rx_lane_rate_khz = mykDevice.rx->rxProfile->iqRate_kHz *
+					mykDevice.rx->framer->M * (20 /
+					hweight8(mykDevice.rx->framer->serializerLanesEnabled));
+	uint32_t rx_div40_rate_hz = rx_lane_rate_khz * (1000 / 40);
+	uint32_t tx_lane_rate_khz = mykDevice.tx->txProfile->iqRate_kHz *
+					mykDevice.tx->deframer->M * (20 /
+					hweight8(mykDevice.tx->deframer->deserializerLanesEnabled));
+	uint32_t tx_div40_rate_hz = tx_lane_rate_khz * (1000 / 40);
+	uint32_t rx_os_lane_rate_khz = mykDevice.obsRx->orxProfile->iqRate_kHz *
+					mykDevice.obsRx->framer->M * (20 /
+					hweight8(mykDevice.obsRx->framer->serializerLanesEnabled));
+	uint32_t rx_os_div40_rate_hz = rx_os_lane_rate_khz * (1000 / 40);
+	struct jesd204_rx_init rx_jesd_init = {
+		"rx_jesd",
+		RX_JESD_BASEADDR,
+		4,
+		32,
+		1,
+		rx_div40_rate_hz / 1000,
+		rx_lane_rate_khz,
+	};
+	struct jesd204_tx_init tx_jesd_init = {
+		"tx_jesd",
+		TX_JESD_BASEADDR,
+		2,
+		32,
+		4,
+		14,
+		16,
+		true,
+		2,
+		1,
+		tx_div40_rate_hz / 1000,
+		tx_lane_rate_khz,
+	};
+
+	struct jesd204_rx_init rx_os_jesd_init = {
+		"rx_os_jesd",
+		RX_OS_JESD_BASEADDR,
+		2,
+		32,
+		1,
+		rx_os_div40_rate_hz / 1000,
+		rx_os_lane_rate_khz,
+	};
+	struct axi_jesd204_rx *rx_jesd;
+	struct axi_jesd204_tx *tx_jesd;
+	struct axi_jesd204_rx *rx_os_jesd;
+	struct adxcvr_init rx_adxcvr_init = {
+		"rx_adxcvr",
+		RX_XCVR_BASEADDR,
+		0,
+		3,
+		1,
+		1,
+		rx_lane_rate_khz,
+		mykDevice.clocks->deviceClock_kHz,
+	};
+	struct adxcvr_init tx_adxcvr_init = {
+		"tx_adxcvr",
+		TX_XCVR_BASEADDR,
+		3,
+		3,
+		0,
+		0,
+		tx_lane_rate_khz,
+		mykDevice.clocks->deviceClock_kHz,
+	};
+	struct adxcvr_init rx_os_adxcvr_init = {
+		"rx_os_adxcvr",
+		RX_OS_XCVR_BASEADDR,
+		0,
+		3,
+		1,
+		1,
+		rx_os_lane_rate_khz,
+		mykDevice.clocks->deviceClock_kHz,
+	};
+	struct adxcvr *rx_adxcvr;
+	struct adxcvr *tx_adxcvr;
+	struct adxcvr *rx_os_adxcvr;
+
+
+
+
+
+
 
 	/* Allocating memory for the errorString */
 	errorString = NULL;
@@ -185,27 +231,85 @@ int main(void)
 	if (error != ADIERR_OK)
 		printf("WARNING: AD9528_initialize() issues. Possible cause: REF_CLK not connected.\n");
 
-	/* Initialize CLKGENs */
-	status = clkgen_setup(&mykDevice);
-	if (status != 0) {
-		printf("clkgen_setup() failed\n");
-		error = ADIERR_FAILED;
+	/* Initialize CLKGEN */
+	status = axi_clkgen_init(&rx_clkgen, &rx_clkgen_init);
+	if (status != SUCCESS) {
+		printf("error: %s: axi_clkgen_init() failed\n", rx_clkgen_init.name);
+		goto error_2;
+	}
+	status = axi_clkgen_init(&tx_clkgen, &tx_clkgen_init);
+	if (status != SUCCESS) {
+		printf("error: %s: axi_clkgen_init() failed\n", tx_clkgen_init.name);
+		goto error_2;
+	}
+	status = axi_clkgen_init(&rx_os_clkgen, &rx_os_clkgen_init);
+	if (status != SUCCESS) {
+		printf("error: %s: axi_clkgen_set_rate() failed\n", rx_os_clkgen_init.name);
 		goto error_2;
 	}
 
-	/* Initialize JESDs */
-	status = jesd_setup(&mykDevice);
-	if (status != 0) {
-		printf("jesd_setup() failed\n");
-		error = ADIERR_FAILED;
+	status = axi_clkgen_set_rate(rx_clkgen, rx_div40_rate_hz);
+	if (status != SUCCESS) {
+		printf("error: %s: axi_clkgen_set_rate() failed\n", rx_clkgen->name);
+		goto error_2;
+	}
+	status = axi_clkgen_set_rate(tx_clkgen, tx_div40_rate_hz);
+	if (status != SUCCESS) {
+		printf("error: %s: axi_clkgen_set_rate() failed\n", tx_clkgen->name);
+		goto error_2;
+	}
+	status = axi_clkgen_set_rate(rx_os_clkgen, rx_os_div40_rate_hz);
+	if (status != SUCCESS) {
+		printf("error: %s: axi_clkgen_set_rate() failed\n", rx_os_clkgen->name);
 		goto error_2;
 	}
 
-	/* Initialize ADXCVRs */
-	status = xcvr_setup(&mykDevice);
-	if (status != 0) {
-		printf("xcvr_setup() failed\n");
-		error = ADIERR_FAILED;
+	/* Initialize JESD */
+	status = axi_jesd204_rx_init(&rx_jesd, &rx_jesd_init);
+	if (status != SUCCESS) {
+		printf("error: %s: axi_jesd204_rx_init() failed\n", rx_jesd_init.name);
+		goto error_2;
+	}
+	status = axi_jesd204_tx_init(&tx_jesd, &tx_jesd_init);
+	if (status != SUCCESS) {
+		printf("error: %s: axi_jesd204_rx_init() failed\n", rx_jesd_init.name);
+		goto error_2;
+	}
+	status = axi_jesd204_rx_init(&rx_os_jesd, &rx_os_jesd_init);
+	if (status != SUCCESS) {
+		printf("error: %s: axi_jesd204_rx_init() failed\n", rx_jesd_init.name);
+		goto error_2;
+	}
+
+	/* Initialize ADXCR */
+	status = adxcvr_init(&rx_adxcvr, &rx_adxcvr_init);
+	if (status != SUCCESS) {
+		printf("error: %s: adxcvr_init() failed\n", rx_adxcvr_init.name);
+		goto error_2;
+	}
+	status = adxcvr_init(&tx_adxcvr, &tx_adxcvr_init);
+	if (status != SUCCESS) {
+		printf("error: %s: adxcvr_init() failed\n", tx_adxcvr_init.name);
+		goto error_2;
+	}
+	status = adxcvr_init(&rx_os_adxcvr, &rx_os_adxcvr_init);
+	if (status != SUCCESS) {
+		printf("error: %s: adxcvr_init() failed\n", rx_os_adxcvr_init.name);
+		goto error_2;
+	}
+	status = adxcvr_clk_enable(rx_adxcvr);
+	if (status != SUCCESS) {
+		printf("error: %s: adxcvr_clk_enable() failed\n", rx_adxcvr->name);
+		goto error_2;
+	}
+	status = adxcvr_clk_enable(tx_adxcvr);
+	if (status != SUCCESS) {
+		printf("error: %s: adxcvr_clk_enable() failed\n", tx_adxcvr->name);
+		goto error_2;
+	}
+	status = adxcvr_clk_enable(rx_os_adxcvr);
+	if (status != SUCCESS) {
+		printf("error: %s: adxcvr_clk_enable() failed\n", rx_os_adxcvr->name);
 		goto error_2;
 	}
 
@@ -488,7 +592,7 @@ int main(void)
 		goto error_1;
 	}
 
-	jesd_tx_enable(&mykDevice);
+	axi_jesd204_tx_lane_clk_enable(tx_jesd);
 
 	if ((mykError = MYKONOS_enableSysrefToDeframer(&mykDevice, 1)) != MYKONOS_ERR_OK) {
 		errorString = getMykonosErrorMessage(mykError);
@@ -507,7 +611,8 @@ int main(void)
 
 	/*** < Info: Mykonos is actively transmitting CGS from the ObsRxFramer> ***/
 
-	jesd_rx_enable(&mykDevice);
+	axi_jesd204_rx_lane_clk_enable(rx_jesd);
+	axi_jesd204_rx_lane_clk_enable(rx_os_jesd);
 
 	/* Request two SYSREFs from the AD9528 */
 	AD9528_requestSysref(clockAD9528_device, 1);
@@ -573,27 +678,10 @@ int main(void)
 		goto error_1;
 	}
 
-	status = dac_setup(&mykDevice, &ad9371_tx_core_init);
-	if (status != 0) {
-		printf("dac_setup() failed\n");
-		error = ADIERR_FAILED;
-		goto error_2;
-	}
-
-	status = adc_setup(&ad9371_rx_core_init);
-	if (status != 0) {
-		printf("adc_setup() failed\n");
-		error = ADIERR_FAILED;
-		goto error_2;
-	}
-
-	dac_write_custom_data(&ad9371_tx_core_init,
-						  sine_lut_iq,
-						  sizeof(sine_lut_iq) / sizeof(uint32_t));
-
-	mdelay(1000);
-
-	adc_capture(&ad9371_rx_core_init, 16384);
+	/* Print JESD status */
+	axi_jesd204_rx_status_read(rx_jesd);
+	axi_jesd204_tx_status_read(tx_jesd);
+	axi_jesd204_rx_status_read(rx_os_jesd);
 
 	printf("Done\n");
 
