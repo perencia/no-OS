@@ -2631,7 +2631,7 @@ static ssize_t write_dev(const char *device, const char *buf,
 			 size_t bytes_count)
 {
 	ad9361_phy->tx_dmac->flags = DMA_CYCLIC;
-	axi_dmac_set_buff(DAC_DDR_BASEADDR, buf, bytes_count);
+	axi_dmac_set_buff(ad9361_phy->tx_dac, DAC_DDR_BASEADDR, (uint16_t *)buf, bytes_count);
 	axi_dmac_transfer(ad9361_phy->tx_dmac, DAC_DDR_BASEADDR, bytes_count);
 	axi_dac_datasel(ad9361_phy->tx_dac, -1, DATA_SEL_DMA);
 	return bytes_count;

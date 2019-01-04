@@ -42,6 +42,7 @@
 /******************************************************************************/
 #include <stdlib.h>
 #include <stdio.h>
+#include <xil_cache.h>
 #include "platform_drivers.h"
 #ifdef ALTERA_PLATFORM
 #include "io.h"
@@ -529,6 +530,112 @@ int32_t axi_dac_datasel(struct axi_dac *dac, int32_t chan, enum dds_data_select 
 	} else {
 		axi_dac_write(dac, DAC_REG_CHAN_CNTRL_7(chan), sel);
 	}
+	axi_dac_write(dac, AXI_DAC_REG_SYNC_CONTROL, AXI_DAC_SYNC);
 	return 0;
 }
 
+uint32_t axi_dmac_set_sine_lut(struct axi_dac *dac, uint32_t address)
+{
+	uint32_t length;
+	uint32_t tx_count;
+	uint32_t index_mem;
+	uint32_t index;
+	uint32_t index_i1;
+	uint32_t index_q1;
+	uint32_t index_i2;
+	uint32_t index_q2;
+	uint32_t data_i1;
+	uint32_t data_q1;
+	uint32_t data_i2;
+	uint32_t data_q2;
+	tx_count = sizeof(sine_lut) / sizeof(uint16_t);
+	if(dac->num_channels == 4)
+	{
+#ifdef FMCOMMS5
+		for(index = 0, index_mem = 0; index < (tx_count * 2); index += 2, index_mem += 4)
+#else
+		for(index = 0, index_mem = 0; index < (tx_count * 2); index += 2, index_mem += 2)
+#endif
+		{
+			index_i1 = index;
+			index_q1 = index + (tx_count / 2);
+			if(index_q1 >= (tx_count * 2))
+				index_q1 -= (tx_count * 2);
+			data_i1 = (sine_lut[index_i1 / 2] << 20);
+			data_q1 = (sine_lut[index_q1 / 2] << 4);
+			Xil_Out32(address + index_mem * 4, data_i1 | data_q1);
+
+			index_i2 = index_i1;
+			index_q2 = index_q1;
+			if(index_i2 >= (tx_count * 2))
+				index_i2 -= (tx_count * 2);
+			if(index_q2 >= (tx_count * 2))
+				index_q2 -= (tx_count * 2);
+			data_i2 = (sine_lut[index_i2 / 2] << 20);
+			data_q2 = (sine_lut[index_q2 / 2] << 4);
+			Xil_Out32(address + (index_mem + 1) * 4, data_i2 | data_q2);
+#ifdef FMCOMMS5
+			Xil_Out32(address + (index_mem + 2) * 4, data_i1 | data_q1);
+			Xil_Out32(address + (index_mem + 3) * 4, data_i2 | data_q2);
+#endif
+		}
+	}
+	else
+	{
+		for(index = 0; index < tx_count; index += 1)
+		{
+			index_i1 = index;
+			index_q1 = index + (tx_count / 4);
+			if(index_q1 >= tx_count)
+				index_q1 -= tx_count;
+			data_i1 = (sine_lut[index_i1] << 20);
+			data_q1 = (sine_lut[index_q1] << 4);
+			Xil_Out32(address + index * 4, data_i1 | data_q1);
+		}
+	}
+	Xil_DCacheFlush();
+	length = tx_count * dac->num_channels * 2;
+	return length;
+}
+
+int32_t axi_dmac_set_buff(struct axi_dac *dac, uint32_t address, uint16_t *buf, uint32_t buff_size)
+{
+	uint32_t index;
+	uint32_t tx_count = buff_size;
+	uint32_t data_i1;
+	uint32_t data_q1;
+	uint32_t data_i2;
+	uint32_t data_q2;
+	if(dac->num_channels == 4)
+	{
+#ifdef FMCOMMS5 // todo test it with FMCOMMS5, it should work
+		for(index = 0; index < tx_count; index += 8)
+#else
+		for(index = 0; index < tx_count; index += 4)
+#endif
+		{
+			data_i1 = (buf[index]);
+			data_q1 = (buf[index + 1] << 16);
+			Xil_Out32(address + index * 2, data_i1 | data_q1);
+
+			data_i2 = (buf[index + 2]);
+			data_q2 = (buf[index + 3] << 16);
+			Xil_Out32(address + index * 2 + 4, data_i2 | data_q2);
+#ifdef FMCOMMS5
+			Xil_Out32(address + index * 2 + 8, data_i1 | data_q1);
+			Xil_Out32(address + index * 2 + 12, data_i2 | data_q2);
+#endif
+		}
+	}
+	else
+	{
+		for(index = 0; index < tx_count; index += 2)
+		{
+			data_i1 = (buf[index]);
+			data_q1 = (buf[index + 1] << 16);
+			Xil_Out32(address + index * 2, data_i1 | data_q1);
+		}
+	}
+	Xil_DCacheFlush();
+	return 0;
+}

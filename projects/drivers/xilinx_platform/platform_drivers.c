@@ -229,18 +229,15 @@ int32_t spi_write_and_read(struct spi_desc *desc,
 			   uint8_t *data,
 			   uint8_t bytes_number)
 {
-//todo is used for adrv9009
-//	XSpiPs_SetOptions(&desc->instance,
-//			  XSPIPS_MASTER_OPTION |
-//			  XSPIPS_DECODE_SSELECT_OPTION |
-//			  XSPIPS_FORCE_SSELECT_OPTION |
-//			  ((desc->mode & SPI_CPOL) ?
-//			   XSPIPS_CLK_ACTIVE_LOW_OPTION : 0) |
-//			  ((desc->mode & SPI_CPHA) ?
-//			   XSPIPS_CLK_PHASE_1_OPTION : 0));
 
 	XSpiPs_SetOptions(&desc->instance,
-			  0x15);
+			  XSPIPS_MASTER_OPTION |
+//			  XSPIPS_DECODE_SSELECT_OPTION | // todo, this is set for adrv9009
+			  XSPIPS_FORCE_SSELECT_OPTION |
+			  ((desc->mode & SPI_CPOL) ?
+			   XSPIPS_CLK_ACTIVE_LOW_OPTION : 0) |
+			  ((desc->mode & SPI_CPHA) ?
+			   XSPIPS_CLK_PHASE_1_OPTION : 0));
 	XSpiPs_SetSlaveSelect(&desc->instance,
 			      0xf & ~desc->chip_select);
 	XSpiPs_PolledTransfer(&desc->instance,

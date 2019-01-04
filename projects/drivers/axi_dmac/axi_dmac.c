@@ -106,47 +106,6 @@ int32_t axi_dmac_write(struct axi_dmac *dmac,
 	return SUCCESS;
 }
 
-int32_t axi_dmac_set_buff(uint32_t address, uint16_t *buf, uint32_t buff_size)
-{
-	uint32_t index;
-	uint32_t tx_count = buff_size;
-	uint32_t data_i1;
-	uint32_t data_q1;
-	uint32_t data_i2;
-	uint32_t data_q2;
-	if(1/*dds_st[phy->id_no].rx2tx2*/)
-	{
-#ifdef FMCOMMS5 // todo test it with FMCOMMS5, it should work
-		for(index = 0; index < tx_count; index += 8)
-#else
-		for(index = 0; index < tx_count; index += 4)
-#endif
-		{
-			data_i1 = (buf[index]);
-			data_q1 = (buf[index + 1] << 16);
-			Xil_Out32(address + index * 2, data_i1 | data_q1);
-
-			data_i2 = (buf[index + 2]);
-			data_q2 = (buf[index + 3] << 16);
-			Xil_Out32(address + index * 2 + 4, data_i2 | data_q2);
-#ifdef FMCOMMS5
-			Xil_Out32(DAC_DDR_BASEADDR + index * 2 + 8, data_i1 | data_q1);
-			Xil_Out32(DAC_DDR_BASEADDR + index * 2 + 12, data_i2 | data_q2);
-#endif
-		}
-	}
-	else
-	{
-		for(index = 0; index < tx_count; index += 2)
-		{
-			data_i1 = (buf[index]);
-			data_q1 = (buf[index + 1] << 16);
-			Xil_Out32(address + index * 2, data_i1 | data_q1);
-		}
-	}
-
-	return 0;
-}
 /***************************************************************************//**
  * @brief axi_dmac_transfer
  *******************************************************************************/
@@ -220,6 +179,8 @@ int32_t axi_dmac_init(struct axi_dmac **dmac_core,
 	dmac->name = init->name;
 	dmac->base = init->base;
 	dmac->direction = init->direction;
+
+	axi_dmac_write(dmac, AXI_DMAC_REG_CTRL, 0x0);
 
 	*dmac_core = dmac;
 
