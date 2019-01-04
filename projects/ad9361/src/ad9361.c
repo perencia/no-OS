@@ -578,20 +578,21 @@ int32_t ad9361_spi_readm(struct spi_desc *spi, uint32_t reg,
 {
 	int32_t ret = 0;
 	uint16_t cmd;
-	uint8_t *rbuffer = (uint8_t *) malloc(num + 2);
+	uint8_t *rbuffer;
 	if (num > MAX_MBYTE_SPI)
 		return -EINVAL;
 
 	cmd = AD_READ | AD_CNT(num) | AD_ADDR(reg);
+	rbuffer = (uint8_t *) malloc(num + 2);
 	rbuffer[0] = cmd >> 8;
 	rbuffer[1] = cmd & 0xFF;
 	ret = spi_write_and_read(spi, &rbuffer[0], 2 + num);
 
 	if (ret < 0) {
 		dev_err(&spi->dev, "Read Error %"PRId32, ret);
-		return ret;
+	} else {
+		memcpy(rbuf, &rbuffer[2], num);
 	}
-	memcpy(rbuf, &rbuffer[2], num);
 	free(rbuffer);
 	return ret;
 }
@@ -3870,7 +3871,7 @@ static int32_t ad9361_gc_setup(struct ad9361_rf_phy *phy,
  * @return 0 in case of success, negative error code otherwise.
  */
 int32_t ad9361_auxdac_set(struct ad9361_rf_phy *phy, int32_t dac,
-				 int32_t val_mV)
+			  int32_t val_mV)
 {
 	struct spi_desc *spi = phy->spi;
 	uint32_t val, tmp;

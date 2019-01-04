@@ -151,7 +151,7 @@ void tinyiiod_do_write_attr(struct tinyiiod *iiod, const char *device,
 		bytes = sizeof(buf);
 	tinyiiod_read(iiod, buf, bytes);
 
-	buf[bytes] = '\0';
+	buf[bytes - 1] = '\0';
 
 	if (channel)
 		ret = iiod->ops->ch_write_attr(device, channel, ch_out,

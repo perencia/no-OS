@@ -95,22 +95,22 @@
 #define AXI_DAC_TO_DATA_SELECT(x)		(((x) >> 0) & 0xF)
 
 const uint16_t sine_lut[128] = {
-		0x000, 0x064, 0x0C8, 0x12C, 0x18F, 0x1F1, 0x252, 0x2B1,
-		0x30F, 0x36B, 0x3C5, 0x41C, 0x471, 0x4C3, 0x512, 0x55F,
-		0x5A7, 0x5ED, 0x62E, 0x66C, 0x6A6, 0x6DC, 0x70D, 0x73A,
-		0x763, 0x787, 0x7A7, 0x7C2, 0x7D8, 0x7E9, 0x7F5, 0x7FD,
-		0x7FF, 0x7FD, 0x7F5, 0x7E9, 0x7D8, 0x7C2, 0x7A7, 0x787,
-		0x763, 0x73A, 0x70D, 0x6DC, 0x6A6, 0x66C, 0x62E, 0x5ED,
-		0x5A7, 0x55F, 0x512, 0x4C3, 0x471, 0x41C, 0x3C5, 0x36B,
-		0x30F, 0x2B1, 0x252, 0x1F1, 0x18F, 0x12C, 0xC8,  0x64,
-		0x000, 0xF9B, 0xF37, 0xED3, 0xE70, 0xE0E, 0xDAD, 0xD4E,
-		0xCF0, 0xC94, 0xC3A, 0xBE3, 0xB8E, 0xB3C, 0xAED, 0xAA0,
-		0xA58, 0xA12, 0x9D1, 0x993, 0x959, 0x923, 0x8F2, 0x8C5,
-		0x89C, 0x878, 0x858, 0x83D, 0x827, 0x816, 0x80A, 0x802,
-		0x800, 0x802, 0x80A, 0x816, 0x827, 0x83D, 0x858, 0x878,
-		0x89C, 0x8C5, 0x8F2, 0x923, 0x959, 0x993, 0x9D1, 0xA12,
-		0xA58, 0xAA0, 0xAED, 0xB3C, 0xB8E, 0xBE3, 0xC3A, 0xC94,
-		0xCF0, 0xD4E, 0xDAD, 0xE0E, 0xE70, 0xED3, 0xF37, 0xF9B
+	0x000, 0x064, 0x0C8, 0x12C, 0x18F, 0x1F1, 0x252, 0x2B1,
+	0x30F, 0x36B, 0x3C5, 0x41C, 0x471, 0x4C3, 0x512, 0x55F,
+	0x5A7, 0x5ED, 0x62E, 0x66C, 0x6A6, 0x6DC, 0x70D, 0x73A,
+	0x763, 0x787, 0x7A7, 0x7C2, 0x7D8, 0x7E9, 0x7F5, 0x7FD,
+	0x7FF, 0x7FD, 0x7F5, 0x7E9, 0x7D8, 0x7C2, 0x7A7, 0x787,
+	0x763, 0x73A, 0x70D, 0x6DC, 0x6A6, 0x66C, 0x62E, 0x5ED,
+	0x5A7, 0x55F, 0x512, 0x4C3, 0x471, 0x41C, 0x3C5, 0x36B,
+	0x30F, 0x2B1, 0x252, 0x1F1, 0x18F, 0x12C, 0xC8,  0x64,
+	0x000, 0xF9B, 0xF37, 0xED3, 0xE70, 0xE0E, 0xDAD, 0xD4E,
+	0xCF0, 0xC94, 0xC3A, 0xBE3, 0xB8E, 0xB3C, 0xAED, 0xAA0,
+	0xA58, 0xA12, 0x9D1, 0x993, 0x959, 0x923, 0x8F2, 0x8C5,
+	0x89C, 0x878, 0x858, 0x83D, 0x827, 0x816, 0x80A, 0x802,
+	0x800, 0x802, 0x80A, 0x816, 0x827, 0x83D, 0x858, 0x878,
+	0x89C, 0x8C5, 0x8F2, 0x923, 0x959, 0x993, 0x9D1, 0xA12,
+	0xA58, 0xAA0, 0xAED, 0xB3C, 0xB8E, 0xBE3, 0xC3A, 0xC94,
+	0xCF0, 0xD4E, 0xDAD, 0xE0E, 0xE70, 0xED3, 0xF37, 0xF9B
 };
 
 /***************************************************************************//**
@@ -294,7 +294,8 @@ int32_t axi_dac_remove(struct axi_dac *dac)
  *
  * freq is in Hz (i.e. set to 1*1000*1000 for 1 MHz)
  *******************************************************************************/
-void axi_dac_dds_get_frequency(struct axi_dac *dac, uint32_t chan, uint32_t *freq)
+void axi_dac_dds_get_frequency(struct axi_dac *dac, uint32_t chan,
+			       uint32_t *freq)
 {
 	uint32_t reg;
 	uint64_t val64;
@@ -314,7 +315,7 @@ void axi_dac_dds_get_frequency(struct axi_dac *dac, uint32_t chan, uint32_t *fre
  * phase is in milli angles scaled to 1000 (i.e. 90*1000 is 90 degrees (pi/2))
  *******************************************************************************/
 void axi_dac_dds_get_phase(struct axi_dac *dac,
-			      uint32_t chan, uint32_t *phase)
+			   uint32_t chan, uint32_t *phase)
 {
 	uint64_t val64;
 	uint32_t reg;
@@ -335,15 +336,15 @@ void axi_dac_dds_get_phase(struct axi_dac *dac,
  * scale is in micro units (i.e. 1*1000*1000 is 1.0)
  *******************************************************************************/
 void axi_dac_dds_get_scale(struct axi_dac *dac,
-			      uint32_t chan,
-			      int32_t *scale_micro_units)
+			   uint32_t chan,
+			   int32_t *scale_micro_units)
 {
 	int32_t sign = 1;
 	uint32_t scale_reg;
 
 	axi_dac_write(dac, AXI_DAC_REG_SYNC_CONTROL, 0);
 	axi_dac_read(dac, AXI_DAC_REG_DDS_SCALE(chan),
-		      &scale_reg);
+		     &scale_reg);
 	axi_dac_write(dac, AXI_DAC_REG_SYNC_CONTROL, AXI_DAC_SYNC);
 	scale_reg = AXI_DAC_TO_DDS_SCALE(scale_reg);
 	sign = scale_reg & 0x8000 ? -1 : 1;
@@ -372,8 +373,8 @@ uint32_t axi_dac_dds_to_signed_mag_fmt(int32_t val, int32_t val2)
 	case 0:
 		i = 0;
 		if (val2 < 0) {
-				i = 0x8000;
-				val2 *= -1;
+			i = 0x8000;
+			val2 *= -1;
 		}
 		break;
 	default:
@@ -391,8 +392,8 @@ uint32_t axi_dac_dds_to_signed_mag_fmt(int32_t val, int32_t val2)
  * @brief dds_from_signed_mag_fmt
 *******************************************************************************/
 void axi_dac_dds_from_signed_mag_fmt(uint32_t val,
-							 int32_t *r_val,
-							 int32_t *r_val2)
+				     int32_t *r_val,
+				     int32_t *r_val2)
 {
 	uint64_t val64;
 	int32_t sign;
@@ -422,10 +423,10 @@ void axi_dac_dds_from_signed_mag_fmt(uint32_t val,
  * @brief dds_set_calib_scale_phase
 *******************************************************************************/
 int32_t axi_dac_dds_set_calib_scale_phase(struct axi_dac *dac,
-								  uint32_t phase,
-								  uint32_t chan,
-								  int32_t val,
-								  int32_t val2)
+		uint32_t phase,
+		uint32_t chan,
+		int32_t val,
+		int32_t val2)
 {
 	uint32_t reg;
 	uint32_t i;
@@ -451,10 +452,10 @@ int32_t axi_dac_dds_set_calib_scale_phase(struct axi_dac *dac,
  * @brief dds_get_calib_scale_phase
 *******************************************************************************/
 int32_t axi_dac_dds_get_calib_scale_phase(struct axi_dac *dac,
-								  uint32_t phase,
-								  uint32_t chan,
-								  int32_t *val,
-								  int32_t *val2)
+		uint32_t phase,
+		uint32_t chan,
+		int32_t *val,
+		int32_t *val2)
 {
 	uint32_t reg;
 
@@ -477,9 +478,9 @@ int32_t axi_dac_dds_get_calib_scale_phase(struct axi_dac *dac,
  * @brief dds_set_calib_scale
 *******************************************************************************/
 int32_t axi_dac_dds_set_calib_scale(struct axi_dac *dac,
-							uint32_t chan,
-							int32_t val,
-							int32_t val2)
+				    uint32_t chan,
+				    int32_t val,
+				    int32_t val2)
 {
 	return axi_dac_dds_set_calib_scale_phase(dac, 0, chan, val, val2);
 }
@@ -488,9 +489,9 @@ int32_t axi_dac_dds_set_calib_scale(struct axi_dac *dac,
  * @brief dds_get_calib_scale
 *******************************************************************************/
 int32_t axi_dac_dds_get_calib_scale(struct axi_dac *dac,
-							uint32_t chan,
-							int32_t *val,
-							int32_t *val2)
+				    uint32_t chan,
+				    int32_t *val,
+				    int32_t *val2)
 {
 	return axi_dac_dds_get_calib_scale_phase(dac, 0, chan, val, val2);
 }
@@ -499,9 +500,9 @@ int32_t axi_dac_dds_get_calib_scale(struct axi_dac *dac,
  * @brief dds_set_calib_phase
 *******************************************************************************/
 int32_t axi_dac_dds_set_calib_phase(struct axi_dac *dac,
-							uint32_t chan,
-							int32_t val,
-							int32_t val2)
+				    uint32_t chan,
+				    int32_t val,
+				    int32_t val2)
 {
 	return axi_dac_dds_set_calib_scale_phase(dac, 1, chan, val, val2);
 }
@@ -510,9 +511,9 @@ int32_t axi_dac_dds_set_calib_phase(struct axi_dac *dac,
  * @brief dds_get_calib_phase
 *******************************************************************************/
 int32_t axi_dac_dds_get_calib_phase(struct axi_dac *dac,
-							uint32_t chan,
-							int32_t *val,
-							int32_t *val2)
+				    uint32_t chan,
+				    int32_t *val,
+				    int32_t *val2)
 {
 	return axi_dac_dds_get_calib_scale_phase(dac, 1, chan, val, val2);
 }
@@ -520,7 +521,8 @@ int32_t axi_dac_dds_get_calib_phase(struct axi_dac *dac,
 /***************************************************************************//**
  * @brief dac_datasel
 *******************************************************************************/
-int32_t axi_dac_datasel(struct axi_dac *dac, int32_t chan, enum dds_data_select sel)
+int32_t axi_dac_datasel(struct axi_dac *dac, int32_t chan,
+			enum dds_data_select sel)
 {
 	int32_t i;
 	if (chan < 0) { /* ALL */
@@ -549,12 +551,13 @@ uint32_t axi_dmac_set_sine_lut(struct axi_dac *dac, uint32_t address)
 	uint32_t data_i2;
 	uint32_t data_q2;
 	tx_count = sizeof(sine_lut) / sizeof(uint16_t);
-	if(dac->num_channels == 4)
-	{
+	if(dac->num_channels == 4) {
 #ifdef FMCOMMS5
-		for(index = 0, index_mem = 0; index < (tx_count * 2); index += 2, index_mem += 4)
+		for(index = 0, index_mem = 0; index < (tx_count * 2);
+		    index += 2, index_mem += 4)
 #else
-		for(index = 0, index_mem = 0; index < (tx_count * 2); index += 2, index_mem += 2)
+		for(index = 0, index_mem = 0; index < (tx_count * 2);
+		    index += 2, index_mem += 2)
 #endif
 		{
 			index_i1 = index;
@@ -579,11 +582,8 @@ uint32_t axi_dmac_set_sine_lut(struct axi_dac *dac, uint32_t address)
 			Xil_Out32(address + (index_mem + 3) * 4, data_i2 | data_q2);
 #endif
 		}
-	}
-	else
-	{
-		for(index = 0; index < tx_count; index += 1)
-		{
+	} else {
+		for(index = 0; index < tx_count; index += 1) {
 			index_i1 = index;
 			index_q1 = index + (tx_count / 4);
 			if(index_q1 >= tx_count)
@@ -598,7 +598,8 @@ uint32_t axi_dmac_set_sine_lut(struct axi_dac *dac, uint32_t address)
 	return length;
 }
 
-int32_t axi_dmac_set_buff(struct axi_dac *dac, uint32_t address, uint16_t *buf, uint32_t buff_size)
+int32_t axi_dmac_set_buff(struct axi_dac *dac, uint32_t address, uint16_t *buf,
+			  uint32_t buff_size)
 {
 	uint32_t index;
 	uint32_t tx_count = buff_size;
@@ -606,8 +607,7 @@ int32_t axi_dmac_set_buff(struct axi_dac *dac, uint32_t address, uint16_t *buf, 
 	uint32_t data_q1;
 	uint32_t data_i2;
 	uint32_t data_q2;
-	if(dac->num_channels == 4)
-	{
+	if(dac->num_channels == 4) {
 #ifdef FMCOMMS5 // todo test it with FMCOMMS5, it should work
 		for(index = 0; index < tx_count; index += 8)
 #else
@@ -626,11 +626,8 @@ int32_t axi_dmac_set_buff(struct axi_dac *dac, uint32_t address, uint16_t *buf, 
 			Xil_Out32(address + index * 2 + 12, data_i2 | data_q2);
 #endif
 		}
-	}
-	else
-	{
-		for(index = 0; index < tx_count; index += 2)
-		{
+	} else {
+		for(index = 0; index < tx_count; index += 2) {
 			data_i1 = (buf[index]);
 			data_q1 = (buf[index + 1] << 16);
 			Xil_Out32(address + index * 2, data_i1 | data_q1);

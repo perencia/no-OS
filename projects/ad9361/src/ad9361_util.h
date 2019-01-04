@@ -120,10 +120,10 @@ typedef SSIZE_T ssize_t;
 /******************************************************************************/
 int32_t clk_prepare_enable(struct clk *clk);
 uint32_t clk_get_rate(struct ad9361_rf_phy *phy,
-					  struct refclk_scale *clk_priv);
+		      struct refclk_scale *clk_priv);
 int32_t clk_set_rate(struct ad9361_rf_phy *phy,
-					 struct refclk_scale *clk_priv,
-					 uint32_t rate);
+		     struct refclk_scale *clk_priv,
+		     uint32_t rate);
 uint32_t int_sqrt(uint32_t x);
 int32_t ilog2(int32_t x);
 //uint64_t do_div(uint64_t* n,
