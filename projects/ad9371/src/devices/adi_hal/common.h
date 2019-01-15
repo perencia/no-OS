@@ -117,6 +117,9 @@ commonErr_t CMB_regWrite(uint32_t offset, uint32_t data);
 commonErr_t CMB_memRead(uint32_t offset, uint32_t *data, uint32_t len);
 commonErr_t CMB_memWrite(uint32_t offset, uint32_t *data, uint32_t len);
 
+int32_t platform_init(void);
+int32_t platform_remove(void);
+
 #ifdef __cplusplus
 }
 #endif

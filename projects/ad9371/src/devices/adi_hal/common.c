@@ -18,11 +18,45 @@
 #include "common.h"
 
 #include "platform_drivers.h"
+#include "parameters.h"
 
 ADI_LOGLEVEL CMB_LOGLEVEL = ADIHAL_LOG_NONE;
 
 static uint32_t _desired_time_to_elapse_us = 0;
-extern spi_device spi_dev;
+struct spi_desc 	*spi_ad_desc;
+struct gpio_desc	*gpio_ad9371_resetb;
+struct gpio_desc	*gpio_ad9528_resetb;
+struct gpio_desc	*gpio_ad9528_sysref_req;
+
+int32_t platform_init(void)
+{
+	struct spi_init_param spi_param;
+	int32_t status = 0;
+
+	status = gpio_get(&gpio_ad9371_resetb, AD9371_RESET_B);
+	status = gpio_get(&gpio_ad9528_resetb, AD9528_RESET_B);
+	status = gpio_get(&gpio_ad9528_sysref_req, AD9528_SYSREF_REQ);
+
+	spi_param.id = SPI_DEVICE_ID;
+	spi_param.mode = SPI_MODE_0;
+	spi_param.chip_select = AD9371_CS;
+	status |= spi_init(&spi_ad_desc, &spi_param);
+
+	return status;
+}
+
+int32_t platform_remove(void)
+{
+	int32_t status;
+
+	status = gpio_remove(gpio_ad9371_resetb);
+	status |= gpio_remove(gpio_ad9528_resetb);
+	status |= gpio_remove(gpio_ad9528_sysref_req);
+
+	status |= spi_remove(spi_ad_desc);
+
+	return status;
+}
 
 commonErr_t CMB_closeHardware(void)
 {
@@ -36,24 +70,24 @@ commonErr_t CMB_setGPIO(uint32_t GPIO)
 
 commonErr_t CMB_hardReset(uint8_t spiChipSelectIndex)
 {
-	uint32_t resetGPIO = 0;
+	struct gpio_desc *reset_gpio;
 
 	switch (spiChipSelectIndex) {
-	case AD9371_CHIP_SELECT:
-		resetGPIO = AD9371_RESET_B;
+	case AD9371_CS:
+		reset_gpio = gpio_ad9371_resetb;
 		break;
-	case AD9528_CHIP_SELECT:
-		resetGPIO = AD9528_RESET_B;
+	case AD9528_CS:
+		reset_gpio = gpio_ad9528_resetb;
 		break;
 	default:
 		return(COMMONERR_FAILED);
 	}
 
-	gpio_set_value(resetGPIO, 0x1);
+	gpio_direction_output(reset_gpio, 1);
 	CMB_wait_ms(1);
-	gpio_set_value(resetGPIO, 0x0);
+	gpio_direction_output(reset_gpio, 0);
 	CMB_wait_ms(1);
-	gpio_set_value(resetGPIO, 0x1);
+	gpio_direction_output(reset_gpio, 1);
 	CMB_wait_ms(1);
 
 	return(COMMONERR_OK);
@@ -73,13 +107,13 @@ commonErr_t CMB_SPIWriteByte(spiSettings_t *spiSettings, uint16_t addr, uint8_t 
 {
 	uint8_t buf[3];
 
-	spi_dev.chip_select = spiSettings->chipSelectIndex;
+	spi_ad_desc->chip_select = spiSettings->chipSelectIndex;
 
 	buf[0] = (uint8_t) ((addr >> 8) & 0x7f);
 	buf[1] = (uint8_t) (addr & 0xff);
 	buf[2] = (uint8_t) data;
 
-	spi_write_and_read(&spi_dev, buf, 3);
+	spi_write_and_read(spi_ad_desc, buf, 3);
 
 	return(COMMONERR_OK);
 }
@@ -99,13 +133,13 @@ commonErr_t CMB_SPIReadByte(spiSettings_t *spiSettings, uint16_t addr, uint8_t *
 {
 	uint8_t buf[3];
 
-	spi_dev.chip_select = spiSettings->chipSelectIndex;
+	spi_ad_desc->chip_select = spiSettings->chipSelectIndex;
 
 	buf[0] = (uint8_t) ((addr >> 8) | 0x80);
 	buf[1] = (uint8_t) (addr & 0xff);
 	buf[2] = (uint8_t) 0x00;
 
-	spi_write_and_read(&spi_dev, buf, 3);
+	spi_write_and_read(spi_ad_desc, buf, 3);
 	*readdata = buf[2];
 
 	return(COMMONERR_OK);
